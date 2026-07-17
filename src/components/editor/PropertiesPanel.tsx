@@ -14,7 +14,7 @@ interface Props {
 export function PropertiesPanel({ instance, variant, onChange, open, onToggle, overlay, onClose }: Props) {
   if (!open) {
     return (
-      <div className="w-10 border-l border-border bg-card/40 flex flex-col items-center py-3 gap-2">
+      <div className="w-10 border-l border-border bg-card/40 flex flex-col items-center py-3 gap-2 shrink-0">
         <button
           onClick={onToggle}
           className="w-8 h-8 rounded-lg hover:bg-white/5 flex items-center justify-center text-muted-foreground hover:text-foreground"
@@ -25,15 +25,20 @@ export function PropertiesPanel({ instance, variant, onChange, open, onToggle, o
       </div>
     );
   }
+  const asideCls = overlay
+    ? "absolute inset-y-0 right-0 z-30 w-80 max-w-[92vw] border-l border-border bg-card shadow-2xl flex flex-col"
+    : "w-80 shrink-0 border-l border-border bg-card/40 flex flex-col";
   return (
-    <aside className="w-80 shrink-0 border-l border-border bg-card/40 flex flex-col">
+    <>
+      {overlay && <div className="absolute inset-0 z-20 bg-black/50" onClick={onClose} />}
+      <aside className={asideCls}>
       <div className="h-11 shrink-0 px-4 border-b border-border flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Settings2 className="w-3.5 h-3.5 text-muted-foreground" />
           <div className="text-xs font-medium">Propriedades</div>
         </div>
         <button
-          onClick={onToggle}
+          onClick={overlay ? onClose : onToggle}
           className="w-7 h-7 rounded-md hover:bg-white/5 flex items-center justify-center text-muted-foreground"
           title="Fechar"
         >
