@@ -9,7 +9,21 @@ import { CTABanner } from "@/components/editor/blocks/CTA";
 import { FooterDark, FooterMinimal } from "@/components/editor/blocks/Footer";
 import type { ComponentType } from "react";
 
-export const VARIANTS: SectionVariant[] = [
+const COLOR_FIELDS = [
+  { key: "bg", label: "Cor de fundo", type: "color" as const },
+  { key: "accent", label: "Cor de destaque", type: "color" as const },
+];
+const COLOR_DEFAULTS = { bg: "#000000", accent: "#FF0000" };
+
+function withColors(v: SectionVariant): SectionVariant {
+  return {
+    ...v,
+    schema: [...v.schema, ...COLOR_FIELDS],
+    defaults: { ...COLOR_DEFAULTS, ...v.defaults },
+  };
+}
+
+const RAW: SectionVariant[] = [
   {
     id: "navbar.modern",
     kind: "navbar",
@@ -217,12 +231,12 @@ export const VARIANTS: SectionVariant[] = [
     kind: "footer",
     name: "Footer Minimal",
     description: "Uma linha centralizada",
-    schema: [
-      { key: "copyright", label: "Copyright", type: "text" },
-    ],
+    schema: [{ key: "copyright", label: "Copyright", type: "text" }],
     defaults: { copyright: "© 2026 Sangre" },
   },
 ];
+
+export const VARIANTS: SectionVariant[] = RAW.map(withColors);
 
 export const RENDERERS: Record<string, ComponentType<{ props: Record<string, string> }>> = {
   "navbar.modern": NavbarModern,

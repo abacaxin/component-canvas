@@ -1,11 +1,12 @@
 type P = { props: Record<string, string> };
 
 export function GalleryMasonry({ props }: P) {
+  const bg = props.bg || "#000000";
   const imgs = [props.img1, props.img2, props.img3, props.img4].filter(Boolean);
   return (
-    <section className="bg-black py-24 border-t border-white/5">
-      <div className="mx-auto max-w-6xl px-6">
-        <h2 className="font-display text-3xl md:text-5xl font-bold text-white text-center mb-12">{props.title}</h2>
+    <section className="py-16 sm:py-24 border-t border-white/5" style={{ background: bg }}>
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        <h2 className="font-display text-2xl sm:text-3xl md:text-5xl font-bold text-white text-center mb-10 sm:mb-12">{props.title}</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {imgs.map((src, i) => (
             <div

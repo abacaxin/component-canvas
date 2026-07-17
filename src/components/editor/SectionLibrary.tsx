@@ -1,7 +1,18 @@
 import { useState } from "react";
-import { VARIANTS } from "@/lib/editor/sections";
+import { VARIANTS, RENDERERS } from "@/lib/editor/sections";
 import type { SectionInstance } from "@/lib/editor/types";
-import { Plus, Copy, Trash2, Eye, EyeOff, ChevronUp, ChevronDown, PanelLeftClose, PanelLeft, Layers, LibraryBig } from "lucide-react";
+import {
+  Plus, Copy, Trash2, Eye, EyeOff, ChevronUp, ChevronDown,
+  PanelLeftClose, PanelLeft, Layers, LibraryBig, GripVertical,
+} from "lucide-react";
+import {
+  DndContext, closestCenter, PointerSensor, useSensor, useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext, verticalListSortingStrategy, useSortable, arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface Props {
   open: boolean;
@@ -14,16 +25,21 @@ interface Props {
   onDuplicate: (id: string) => void;
   onToggleHidden: (id: string) => void;
   onMove: (id: string, dir: -1 | 1) => void;
+  onReorder: (fromId: string, toId: string) => void;
+  overlay?: boolean;
+  onClose?: () => void;
 }
 
 export function SectionLibrary({
-  open, onToggle, onAdd, sections, selectedId, onSelect, onRemove, onDuplicate, onToggleHidden, onMove,
+  open, onToggle, onAdd, sections, selectedId, onSelect, onRemove,
+  onDuplicate, onToggleHidden, onMove, onReorder, overlay, onClose,
 }: Props) {
   const [tab, setTab] = useState<"layers" | "library">("library");
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   if (!open) {
     return (
-      <div className="w-10 border-r border-border bg-card/40 flex flex-col items-center py-3 gap-2">
+      <div className="w-10 border-r border-border bg-card/40 flex flex-col items-center py-3 gap-2 shrink-0">
         <button onClick={onToggle} className="w-8 h-8 rounded-lg hover:bg-white/5 flex items-center justify-center text-muted-foreground hover:text-foreground">
           <PanelLeft className="w-4 h-4" />
         </button>
@@ -31,100 +47,186 @@ export function SectionLibrary({
     );
   }
 
+  const handleDragEnd = (e: DragEndEvent) => {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    onReorder(String(active.id), String(over.id));
+  };
+
+  const asideCls = overlay
+    ? "absolute inset-y-0 left-0 z-30 w-72 border-r border-border bg-card shadow-2xl flex flex-col"
+    : "w-72 shrink-0 border-r border-border bg-card/40 flex flex-col";
+
   return (
-    <aside className="w-72 shrink-0 border-r border-border bg-card/40 flex flex-col">
-      <div className="h-11 shrink-0 px-2 flex items-center justify-between border-b border-border">
-        <div className="flex items-center gap-1 p-0.5 bg-secondary rounded-full text-xs">
-          <button
-            onClick={() => setTab("layers")}
-            className={`px-3 py-1 rounded-full flex items-center gap-1.5 transition-all ${tab === "layers" ? "bg-background text-foreground" : "text-muted-foreground"}`}
-          >
-            <Layers className="w-3 h-3" /> Camadas
-          </button>
-          <button
-            onClick={() => setTab("library")}
-            className={`px-3 py-1 rounded-full flex items-center gap-1.5 transition-all ${tab === "library" ? "bg-background text-foreground" : "text-muted-foreground"}`}
-          >
-            <LibraryBig className="w-3 h-3" /> Biblioteca
+    <>
+      {overlay && <div className="absolute inset-0 z-20 bg-black/50" onClick={onClose} />}
+      <aside className={asideCls}>
+        <div className="h-11 shrink-0 px-2 flex items-center justify-between border-b border-border">
+          <div className="flex items-center gap-1 p-0.5 bg-secondary rounded-full text-xs">
+            <button
+              onClick={() => setTab("layers")}
+              className={`px-3 py-1 rounded-full flex items-center gap-1.5 transition-all ${tab === "layers" ? "bg-background text-foreground" : "text-muted-foreground"}`}
+            >
+              <Layers className="w-3 h-3" /> Camadas
+            </button>
+            <button
+              onClick={() => setTab("library")}
+              className={`px-3 py-1 rounded-full flex items-center gap-1.5 transition-all ${tab === "library" ? "bg-background text-foreground" : "text-muted-foreground"}`}
+            >
+              <LibraryBig className="w-3 h-3" /> Biblioteca
+            </button>
+          </div>
+          <button onClick={overlay ? onClose : onToggle} className="w-7 h-7 rounded-md hover:bg-white/5 flex items-center justify-center text-muted-foreground">
+            <PanelLeftClose className="w-4 h-4" />
           </button>
         </div>
-        <button onClick={onToggle} className="w-7 h-7 rounded-md hover:bg-white/5 flex items-center justify-center text-muted-foreground">
-          <PanelLeftClose className="w-4 h-4" />
-        </button>
-      </div>
 
-      <div className="flex-1 overflow-y-auto scrollbar-thin p-2">
-        {tab === "layers" ? (
-          <div className="space-y-1">
-            {sections.map((s, i) => {
-              const variant = VARIANTS.find((v) => v.id === s.variantId);
-              const active = s.id === selectedId;
-              return (
-                <div
-                  key={s.id}
-                  onClick={() => onSelect(s.id)}
-                  className={`group rounded-lg border transition-all cursor-pointer ${
-                    active
-                      ? "border-[#950101] bg-[#3D0000]/30"
-                      : "border-transparent hover:border-white/10 hover:bg-white/5"
-                  }`}
-                >
-                  <div className="flex items-center gap-2 p-2.5">
-                    <div
-                      className="w-1 h-8 rounded-full shrink-0"
-                      style={{ background: active ? "linear-gradient(180deg,#950101,#FF0000)" : "transparent" }}
+        <div className="flex-1 overflow-y-auto scrollbar-thin p-2">
+          {tab === "layers" ? (
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={sections.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-1">
+                  {sections.map((s, i) => (
+                    <SortableLayer
+                      key={s.id}
+                      s={s}
+                      index={i}
+                      total={sections.length}
+                      active={s.id === selectedId}
+                      onSelect={() => onSelect(s.id)}
+                      onMove={onMove}
+                      onToggleHidden={onToggleHidden}
+                      onDuplicate={onDuplicate}
+                      onRemove={onRemove}
                     />
-                    <div className="flex-1 min-w-0">
-                      <div className={`text-xs font-medium truncate ${s.hidden ? "text-muted-foreground line-through" : "text-foreground"}`}>
-                        {variant?.name}
+                  ))}
+                  {sections.length === 0 && (
+                    <div className="text-xs text-muted-foreground text-center py-8">Adicione seções da biblioteca</div>
+                  )}
+                </div>
+              </SortableContext>
+            </DndContext>
+          ) : (
+            <div className="grid grid-cols-1 gap-3">
+              {VARIANTS.map((v) => (
+                <button
+                  key={v.id}
+                  onClick={() => { onAdd(v.id); onClose?.(); }}
+                  className="group text-left rounded-xl border border-white/5 hover:border-[#950101] bg-black/40 overflow-hidden transition-all"
+                >
+                  <VariantPreview variantId={v.id} defaults={v.defaults} />
+                  <div className="p-2.5 border-t border-white/5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="text-xs font-medium text-foreground truncate">{v.name}</div>
+                        <div className="text-[10px] text-muted-foreground truncate">{v.description}</div>
                       </div>
-                      <div className="text-[10px] text-muted-foreground truncate">
-                        {String(Object.values(s.props)[0] ?? "").slice(0, 40)}
+                      <div className="w-6 h-6 rounded-md border border-white/10 group-hover:bg-[#FF0000] group-hover:border-[#FF0000] flex items-center justify-center transition-colors shrink-0">
+                        <Plus className="w-3 h-3" />
                       </div>
                     </div>
-                    <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 transition-opacity">
-                      <IconBtn onClick={(e) => { e.stopPropagation(); onMove(s.id, -1); }} disabled={i === 0}><ChevronUp className="w-3 h-3" /></IconBtn>
-                      <IconBtn onClick={(e) => { e.stopPropagation(); onMove(s.id, 1); }} disabled={i === sections.length - 1}><ChevronDown className="w-3 h-3" /></IconBtn>
-                      <IconBtn onClick={(e) => { e.stopPropagation(); onToggleHidden(s.id); }}>
-                        {s.hidden ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                      </IconBtn>
-                      <IconBtn onClick={(e) => { e.stopPropagation(); onDuplicate(s.id); }}><Copy className="w-3 h-3" /></IconBtn>
-                      <IconBtn onClick={(e) => { e.stopPropagation(); onRemove(s.id); }}><Trash2 className="w-3 h-3" /></IconBtn>
-                    </div>
+                    <div className="mt-1 text-[9px] uppercase tracking-widest text-muted-foreground/70">{v.kind}</div>
                   </div>
-                </div>
-              );
-            })}
-            {sections.length === 0 && (
-              <div className="text-xs text-muted-foreground text-center py-8">Adicione seções da biblioteca</div>
-            )}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-2">
-            {VARIANTS.map((v) => (
-              <button
-                key={v.id}
-                onClick={() => onAdd(v.id)}
-                className="group text-left p-3 rounded-lg border border-white/5 hover:border-[#950101] hover:bg-[#3D0000]/20 transition-all"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="text-xs font-medium text-foreground">{v.name}</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">{v.description}</div>
-                  </div>
-                  <div className="w-6 h-6 rounded-md border border-white/10 group-hover:bg-[#FF0000] group-hover:border-[#FF0000] flex items-center justify-center transition-colors shrink-0">
-                    <Plus className="w-3 h-3" />
-                  </div>
-                </div>
-                <div className="mt-2 text-[9px] uppercase tracking-widest text-muted-foreground/70">{v.kind}</div>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    </aside>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </aside>
+    </>
   );
 }
+
+function VariantPreview({ variantId, defaults }: { variantId: string; defaults: Record<string, string> }) {
+  const R = RENDERERS[variantId];
+  if (!R) return null;
+  // Render at 1280px width, scale down to fit ~256px card width.
+  const scale = 0.2;
+  return (
+    <div
+      className="relative w-full overflow-hidden bg-black pointer-events-none"
+      style={{ height: 120 }}
+      aria-hidden
+    >
+      <div
+        style={{
+          width: 1280,
+          transform: `scale(${scale})`,
+          transformOrigin: "top left",
+          position: "absolute",
+          top: 0,
+          left: 0,
+        }}
+      >
+        <R props={defaults} />
+      </div>
+    </div>
+  );
+}
+
+function SortableLayer({
+  s, index, total, active, onSelect, onMove, onToggleHidden, onDuplicate, onRemove,
+}: {
+  s: SectionInstance;
+  index: number;
+  total: number;
+  active: boolean;
+  onSelect: () => void;
+  onMove: (id: string, dir: -1 | 1) => void;
+  onToggleHidden: (id: string) => void;
+  onDuplicate: (id: string) => void;
+  onRemove: (id: string) => void;
+}) {
+  const variant = VARIANTS.find((v) => v.id === s.variantId);
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: s.id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      onClick={onSelect}
+      className={`group rounded-lg border transition-all cursor-pointer ${
+        active ? "border-[#950101] bg-[#3D0000]/30" : "border-transparent hover:border-white/10 hover:bg-white/5"
+      }`}
+    >
+      <div className="flex items-center gap-1.5 p-2">
+        <button
+          {...attributes}
+          {...listeners}
+          onClick={(e) => e.stopPropagation()}
+          className="w-5 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing shrink-0"
+          title="Arrastar"
+        >
+          <GripVertical className="w-3.5 h-3.5" />
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className={`text-xs font-medium truncate ${s.hidden ? "text-muted-foreground line-through" : "text-foreground"}`}>
+            {variant?.name}
+          </div>
+          <div className="text-[10px] text-muted-foreground truncate">
+            {String(Object.values(s.props)[0] ?? "").slice(0, 40)}
+          </div>
+        </div>
+        <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 transition-opacity">
+          <IconBtn onClick={(e) => { e.stopPropagation(); onMove(s.id, -1); }} disabled={index === 0}><ChevronUp className="w-3 h-3" /></IconBtn>
+          <IconBtn onClick={(e) => { e.stopPropagation(); onMove(s.id, 1); }} disabled={index === total - 1}><ChevronDown className="w-3 h-3" /></IconBtn>
+          <IconBtn onClick={(e) => { e.stopPropagation(); onToggleHidden(s.id); }}>
+            {s.hidden ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+          </IconBtn>
+          <IconBtn onClick={(e) => { e.stopPropagation(); onDuplicate(s.id); }}><Copy className="w-3 h-3" /></IconBtn>
+          <IconBtn onClick={(e) => { e.stopPropagation(); onRemove(s.id); }}><Trash2 className="w-3 h-3" /></IconBtn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Keep arrayMove import used to avoid tree-shaking removing it (utility re-export).
+void arrayMove;
 
 function IconBtn({ children, onClick, disabled }: { children: React.ReactNode; onClick: (e: React.MouseEvent) => void; disabled?: boolean }) {
   return (
