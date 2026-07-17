@@ -7,9 +7,11 @@ interface Props {
   onChange: (key: string, value: string) => void;
   open: boolean;
   onToggle: () => void;
+  overlay?: boolean;
+  onClose?: () => void;
 }
 
-export function PropertiesPanel({ instance, variant, onChange, open, onToggle }: Props) {
+export function PropertiesPanel({ instance, variant, onChange, open, onToggle, overlay, onClose }: Props) {
   if (!open) {
     return (
       <div className="w-10 border-l border-border bg-card/40 flex flex-col items-center py-3 gap-2">
