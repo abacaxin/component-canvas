@@ -29,7 +29,7 @@ export function Canvas({ device, sections, selectedId, onSelect, renderers }: Pr
         >
           {sections.length === 0 && (
             <div className="p-24 text-center text-white/40 text-sm">
-              Sua tela está vazia. Adicione uma seção pela biblioteca à esquerda.
+              OMG a real landpage
             </div>
           )}
           {sections.map((s) => {
