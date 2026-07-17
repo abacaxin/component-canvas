@@ -164,6 +164,7 @@ export function useProject() {
     duplicateSection,
     toggleHidden,
     moveSection,
+    reorderSections,
     updateProp,
     renameProject,
     undo,
