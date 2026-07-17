@@ -104,6 +104,20 @@ export function useProject() {
     [commit],
   );
 
+  const reorderSections = useCallback(
+    (fromId: string, toId: string) =>
+      commit((p) => {
+        const from = p.sections.findIndex((s) => s.id === fromId);
+        const to = p.sections.findIndex((s) => s.id === toId);
+        if (from < 0 || to < 0 || from === to) return p;
+        const sections = [...p.sections];
+        const [moved] = sections.splice(from, 1);
+        sections.splice(to, 0, moved);
+        return { ...p, sections };
+      }),
+    [commit],
+  );
+
   const updateProp = useCallback(
     (id: string, key: string, value: string) =>
       commit((p) => ({
