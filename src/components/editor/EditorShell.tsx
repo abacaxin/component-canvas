@@ -116,6 +116,8 @@ export function EditorShell() {
           instance={selected}
           variant={selected ? getVariant(selected.variantId) ?? null : null}
           onChange={(k, v) => selected && store.updateProp(selected.id, k, v)}
+          open={propsOpen}
+          onToggle={() => setPropsOpen((v) => !v)}
         />
       </div>
     </div>
