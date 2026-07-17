@@ -12,6 +12,7 @@ export function EditorShell() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [device, setDevice] = useState<Device>("desktop");
   const [libraryOpen, setLibraryOpen] = useState(true);
+  const [propsOpen, setPropsOpen] = useState(true);
 
   const selected = useMemo(
     () => store.project.sections.find((s) => s.id === selectedId) ?? null,
