@@ -19,7 +19,7 @@ interface Props {
 export function SectionLibrary({
   open, onToggle, onAdd, sections, selectedId, onSelect, onRemove, onDuplicate, onToggleHidden, onMove,
 }: Props) {
-  const [tab, setTab] = useState<"layers" | "library">("layers");
+  const [tab, setTab] = useState<"layers" | "library">("library");
 
   if (!open) {
     return (
