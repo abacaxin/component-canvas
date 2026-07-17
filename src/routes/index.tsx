@@ -1,24 +1,23 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { ClientOnly } from "@tanstack/react-router";
+import { EditorShell } from "@/components/editor/EditorShell";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "Sangre — Construtor visual de sites" },
+      { name: "description", content: "Crie sites profissionais em minutos combinando seções pré-desenhadas. Editor visual com preview em tempo real." },
+      { property: "og:title", content: "Sangre — Construtor visual de sites" },
+      { property: "og:description", content: "Editor de sites baseado em componentes premium. Sem código." },
+    ],
+  }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
 function Index() {
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
+    <ClientOnly fallback={<div className="h-screen w-screen bg-black" />}>
+      <EditorShell />
+    </ClientOnly>
   );
 }
