@@ -1,16 +1,33 @@
 import { useState } from "react";
 import { VARIANTS, RENDERERS } from "@/lib/editor/sections";
-import type { SectionInstance } from "@/lib/editor/types";
+import type { PropMap, SectionInstance } from "@/lib/editor/types";
 import {
-  Plus, Copy, Trash2, Eye, EyeOff, ChevronUp, ChevronDown,
-  PanelLeftClose, PanelLeft, Layers, LibraryBig, GripVertical,
+  Plus,
+  Copy,
+  Trash2,
+  Eye,
+  EyeOff,
+  ChevronUp,
+  ChevronDown,
+  PanelLeftClose,
+  PanelLeft,
+  Layers,
+  LibraryBig,
+  GripVertical,
 } from "lucide-react";
 import {
-  DndContext, closestCenter, PointerSensor, useSensor, useSensors,
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
   type DragEndEvent,
 } from "@dnd-kit/core";
 import {
-  SortableContext, verticalListSortingStrategy, useSortable, arrayMove,
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
@@ -31,8 +48,19 @@ interface Props {
 }
 
 export function SectionLibrary({
-  open, onToggle, onAdd, sections, selectedId, onSelect, onRemove,
-  onDuplicate, onToggleHidden, onMove, onReorder, overlay, onClose,
+  open,
+  onToggle,
+  onAdd,
+  sections,
+  selectedId,
+  onSelect,
+  onRemove,
+  onDuplicate,
+  onToggleHidden,
+  onMove,
+  onReorder,
+  overlay,
+  onClose,
 }: Props) {
   const [tab, setTab] = useState<"layers" | "library">("library");
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
@@ -40,7 +68,10 @@ export function SectionLibrary({
   if (!open) {
     return (
       <div className="w-10 border-r border-border bg-card/40 flex flex-col items-center py-3 gap-2 shrink-0">
-        <button onClick={onToggle} className="w-8 h-8 rounded-lg hover:bg-white/5 flex items-center justify-center text-muted-foreground hover:text-foreground">
+        <button
+          onClick={onToggle}
+          className="w-8 h-8 rounded-lg hover:bg-white/5 flex items-center justify-center text-muted-foreground hover:text-foreground"
+        >
           <PanelLeft className="w-4 h-4" />
         </button>
       </div>
@@ -76,15 +107,25 @@ export function SectionLibrary({
               <LibraryBig className="w-3 h-3" /> Biblioteca
             </button>
           </div>
-          <button onClick={overlay ? onClose : onToggle} className="w-7 h-7 rounded-md hover:bg-white/5 flex items-center justify-center text-muted-foreground">
+          <button
+            onClick={overlay ? onClose : onToggle}
+            className="w-7 h-7 rounded-md hover:bg-white/5 flex items-center justify-center text-muted-foreground"
+          >
             <PanelLeftClose className="w-4 h-4" />
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto scrollbar-thin p-2">
           {tab === "layers" ? (
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext items={sections.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={sections.map((s) => s.id)}
+                strategy={verticalListSortingStrategy}
+              >
                 <div className="space-y-1">
                   {sections.map((s, i) => (
                     <SortableLayer
@@ -101,7 +142,9 @@ export function SectionLibrary({
                     />
                   ))}
                   {sections.length === 0 && (
-                    <div className="text-xs text-muted-foreground text-center py-8">Adicione seções da biblioteca</div>
+                    <div className="text-xs text-muted-foreground text-center py-8">
+                      Adicione seções da biblioteca
+                    </div>
                   )}
                 </div>
               </SortableContext>
@@ -111,7 +154,10 @@ export function SectionLibrary({
               {VARIANTS.map((v) => (
                 <button
                   key={v.id}
-                  onClick={() => { onAdd(v.id); onClose?.(); }}
+                  onClick={() => {
+                    onAdd(v.id);
+                    onClose?.();
+                  }}
                   className="group text-left rounded-xl border border-white/5 hover:border-[#950101] bg-black/40 overflow-hidden transition-all"
                 >
                   <VariantPreview variantId={v.id} defaults={v.defaults} />
@@ -119,13 +165,17 @@ export function SectionLibrary({
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <div className="text-xs font-medium text-foreground truncate">{v.name}</div>
-                        <div className="text-[10px] text-muted-foreground truncate">{v.description}</div>
+                        <div className="text-[10px] text-muted-foreground truncate">
+                          {v.description}
+                        </div>
                       </div>
                       <div className="w-6 h-6 rounded-md border border-white/10 group-hover:bg-[#FF0000] group-hover:border-[#FF0000] flex items-center justify-center transition-colors shrink-0">
                         <Plus className="w-3 h-3" />
                       </div>
                     </div>
-                    <div className="mt-1 text-[9px] uppercase tracking-widest text-muted-foreground/70">{v.kind}</div>
+                    <div className="mt-1 text-[9px] uppercase tracking-widest text-muted-foreground/70">
+                      {v.kind}
+                    </div>
                   </div>
                 </button>
               ))}
@@ -137,7 +187,7 @@ export function SectionLibrary({
   );
 }
 
-function VariantPreview({ variantId, defaults }: { variantId: string; defaults: Record<string, string> }) {
+function VariantPreview({ variantId, defaults }: { variantId: string; defaults: PropMap }) {
   const R = RENDERERS[variantId];
   if (!R) return null;
   // Render at 1280px width, scale down to fit ~256px card width.
@@ -165,7 +215,15 @@ function VariantPreview({ variantId, defaults }: { variantId: string; defaults: 
 }
 
 function SortableLayer({
-  s, index, total, active, onSelect, onMove, onToggleHidden, onDuplicate, onRemove,
+  s,
+  index,
+  total,
+  active,
+  onSelect,
+  onMove,
+  onToggleHidden,
+  onDuplicate,
+  onRemove,
 }: {
   s: SectionInstance;
   index: number;
@@ -178,7 +236,9 @@ function SortableLayer({
   onRemove: (id: string) => void;
 }) {
   const variant = VARIANTS.find((v) => v.id === s.variantId);
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: s.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: s.id,
+  });
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -190,7 +250,9 @@ function SortableLayer({
       style={style}
       onClick={onSelect}
       className={`group rounded-lg border transition-all cursor-pointer ${
-        active ? "border-[#950101] bg-[#3D0000]/30" : "border-transparent hover:border-white/10 hover:bg-white/5"
+        active
+          ? "border-[#950101] bg-[#3D0000]/30"
+          : "border-transparent hover:border-white/10 hover:bg-white/5"
       }`}
     >
       <div className="flex items-center gap-1.5 p-2">
@@ -204,21 +266,61 @@ function SortableLayer({
           <GripVertical className="w-3.5 h-3.5" />
         </button>
         <div className="flex-1 min-w-0">
-          <div className={`text-xs font-medium truncate ${s.hidden ? "text-muted-foreground line-through" : "text-foreground"}`}>
+          <div
+            className={`text-xs font-medium truncate ${s.hidden ? "text-muted-foreground line-through" : "text-foreground"}`}
+          >
             {variant?.name}
           </div>
           <div className="text-[10px] text-muted-foreground truncate">
-            {String(Object.values(s.props)[0] ?? "").slice(0, 40)}
+            {(
+              Object.values(s.props).find((v) => typeof v === "string" && v.trim()) as
+                string | undefined
+            )?.slice(0, 40) ?? ""}
           </div>
         </div>
         <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 transition-opacity">
-          <IconBtn onClick={(e) => { e.stopPropagation(); onMove(s.id, -1); }} disabled={index === 0}><ChevronUp className="w-3 h-3" /></IconBtn>
-          <IconBtn onClick={(e) => { e.stopPropagation(); onMove(s.id, 1); }} disabled={index === total - 1}><ChevronDown className="w-3 h-3" /></IconBtn>
-          <IconBtn onClick={(e) => { e.stopPropagation(); onToggleHidden(s.id); }}>
+          <IconBtn
+            onClick={(e) => {
+              e.stopPropagation();
+              onMove(s.id, -1);
+            }}
+            disabled={index === 0}
+          >
+            <ChevronUp className="w-3 h-3" />
+          </IconBtn>
+          <IconBtn
+            onClick={(e) => {
+              e.stopPropagation();
+              onMove(s.id, 1);
+            }}
+            disabled={index === total - 1}
+          >
+            <ChevronDown className="w-3 h-3" />
+          </IconBtn>
+          <IconBtn
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleHidden(s.id);
+            }}
+          >
             {s.hidden ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
           </IconBtn>
-          <IconBtn onClick={(e) => { e.stopPropagation(); onDuplicate(s.id); }}><Copy className="w-3 h-3" /></IconBtn>
-          <IconBtn onClick={(e) => { e.stopPropagation(); onRemove(s.id); }}><Trash2 className="w-3 h-3" /></IconBtn>
+          <IconBtn
+            onClick={(e) => {
+              e.stopPropagation();
+              onDuplicate(s.id);
+            }}
+          >
+            <Copy className="w-3 h-3" />
+          </IconBtn>
+          <IconBtn
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove(s.id);
+            }}
+          >
+            <Trash2 className="w-3 h-3" />
+          </IconBtn>
         </div>
       </div>
     </div>
@@ -228,7 +330,15 @@ function SortableLayer({
 // Keep arrayMove import used to avoid tree-shaking removing it (utility re-export).
 void arrayMove;
 
-function IconBtn({ children, onClick, disabled }: { children: React.ReactNode; onClick: (e: React.MouseEvent) => void; disabled?: boolean }) {
+function IconBtn({
+  children,
+  onClick,
+  disabled,
+}: {
+  children: React.ReactNode;
+  onClick: (e: React.MouseEvent) => void;
+  disabled?: boolean;
+}) {
   return (
     <button
       onClick={onClick}

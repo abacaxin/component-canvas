@@ -5,8 +5,20 @@ import { downloadHTML } from "@/lib/editor/export";
 import { SectionLibrary } from "./SectionLibrary";
 import { PropertiesPanel } from "./PropertiesPanel";
 import { Canvas } from "./Canvas";
+import { FontLoader } from "./FontLoader";
 import type { Device } from "@/lib/editor/types";
-import { Undo2, Redo2, Monitor, Tablet, Smartphone, Rocket, Sparkles, Download, Menu, Settings2 } from "lucide-react";
+import {
+  Undo2,
+  Redo2,
+  Monitor,
+  Tablet,
+  Smartphone,
+  Rocket,
+  Sparkles,
+  Download,
+  Menu,
+  Settings2,
+} from "lucide-react";
 
 export function EditorShell() {
   const store = useProject();
@@ -48,7 +60,10 @@ export function EditorShell() {
       if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) {
         e.preventDefault();
         store.undo();
-      } else if ((e.metaKey || e.ctrlKey) && (e.key === "y" || (e.shiftKey && e.key.toLowerCase() === "z"))) {
+      } else if (
+        (e.metaKey || e.ctrlKey) &&
+        (e.key === "y" || (e.shiftKey && e.key.toLowerCase() === "z"))
+      ) {
         e.preventDefault();
         store.redo();
       }
@@ -59,6 +74,7 @@ export function EditorShell() {
 
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-background text-foreground">
+      <FontLoader typography={store.project.typography} />
       {/* Top bar */}
       <header className="h-14 shrink-0 border-b border-border flex items-center justify-between px-2 sm:px-4 gap-2 bg-card/60 backdrop-blur-xl">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
@@ -73,7 +89,10 @@ export function EditorShell() {
           )}
           <div
             className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-            style={{ background: "linear-gradient(135deg,#3D0000,#950101,#FF0000)", boxShadow: "0 0 20px -4px #FF0000" }}
+            style={{
+              background: "linear-gradient(135deg,#3D0000,#950101,#FF0000)",
+              boxShadow: "0 0 20px -4px #FF0000",
+            }}
           >
             <Sparkles className="w-4 h-4 text-white" />
           </div>
@@ -90,9 +109,21 @@ export function EditorShell() {
         </div>
 
         <div className="flex items-center gap-1 bg-secondary rounded-full p-1 shrink-0">
-          <DeviceBtn active={device === "desktop"} onClick={() => setDevice("desktop")} Icon={Monitor} />
-          <DeviceBtn active={device === "tablet"} onClick={() => setDevice("tablet")} Icon={Tablet} />
-          <DeviceBtn active={device === "mobile"} onClick={() => setDevice("mobile")} Icon={Smartphone} />
+          <DeviceBtn
+            active={device === "desktop"}
+            onClick={() => setDevice("desktop")}
+            Icon={Monitor}
+          />
+          <DeviceBtn
+            active={device === "tablet"}
+            onClick={() => setDevice("tablet")}
+            Icon={Tablet}
+          />
+          <DeviceBtn
+            active={device === "mobile"}
+            onClick={() => setDevice("mobile")}
+            Icon={Smartphone}
+          />
         </div>
 
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
@@ -120,7 +151,10 @@ export function EditorShell() {
           </button>
           <button
             className="h-9 px-3 sm:px-4 rounded-full text-xs sm:text-sm font-medium text-white flex items-center gap-2 transition-transform hover:scale-105"
-            style={{ background: "linear-gradient(135deg,#3D0000,#950101,#FF0000)", boxShadow: "0 0 24px -6px #FF0000" }}
+            style={{
+              background: "linear-gradient(135deg,#3D0000,#950101,#FF0000)",
+              boxShadow: "0 0 24px -6px #FF0000",
+            }}
           >
             <Rocket className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Publicar</span>
@@ -163,13 +197,24 @@ export function EditorShell() {
           selectedId={selectedId}
           onSelect={setSelectedId}
           renderers={RENDERERS}
+          typography={store.project.typography}
         />
 
         {(!isNarrow || propsOpen) && (
           <PropertiesPanel
             instance={selected}
-            variant={selected ? getVariant(selected.variantId) ?? null : null}
+            variant={selected ? (getVariant(selected.variantId) ?? null) : null}
+            typography={store.project.typography}
             onChange={(k, v) => selected && store.updateProp(selected.id, k, v)}
+            onListAdd={(k) => selected && store.addListItem(selected.id, k)}
+            onListRemove={(k, itemId) => selected && store.removeListItem(selected.id, k, itemId)}
+            onListChange={(k, itemId, field, value) =>
+              selected && store.updateListItem(selected.id, k, itemId, field, value)
+            }
+            onListMove={(k, itemId, dir) =>
+              selected && store.moveListItem(selected.id, k, itemId, dir)
+            }
+            onTypographyChange={store.updateTypography}
             open={propsOpen}
             onToggle={() => setPropsOpen((v) => !v)}
             overlay={isNarrow}
@@ -194,7 +239,9 @@ function DeviceBtn({
     <button
       onClick={onClick}
       className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-        active ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+        active
+          ? "bg-background text-foreground shadow-sm"
+          : "text-muted-foreground hover:text-foreground"
       }`}
     >
       <Icon className="w-4 h-4" />

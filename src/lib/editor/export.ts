@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
 import type { ProjectState } from "./types";
 import { RENDERERS } from "./sections";
+import { activeFonts, googleFontsHref, typographyVars } from "./typography";
 
 export function exportHTML(project: ProjectState): string {
   const body = project.sections
@@ -13,6 +14,13 @@ export function exportHTML(project: ProjectState): string {
     })
     .join("\n");
 
+  const t = project.typography;
+  const fontsHref = googleFontsHref(activeFonts(t));
+  const fontsLink = fontsHref ? `<link href="${fontsHref}" rel="stylesheet" />` : "";
+  const vars = Object.entries(typographyVars(t))
+    .map(([k, v]) => `  ${k}: ${v};`)
+    .join("\n");
+
   return `<!doctype html>
 <html lang="pt-BR" class="dark">
 <head>
@@ -22,12 +30,22 @@ export function exportHTML(project: ProjectState): string {
 <meta name="description" content="${escapeHtml(project.name)} — feito com Sangre." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+${fontsLink}
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
-  :root { color-scheme: dark; }
-  html, body { background: #000; color: #fff; font-family: 'Inter', system-ui, sans-serif; }
-  .font-display { font-family: 'Inter Tight', 'Inter', system-ui, sans-serif; }
+  :root {
+    color-scheme: dark;
+${vars}
+  }
+  html, body {
+    background: #000;
+    color: #fff;
+    font-family: var(--site-body-font);
+    font-weight: var(--site-body-weight);
+    line-height: var(--site-line-height);
+    letter-spacing: var(--site-letter-spacing);
+    font-size: var(--site-base-size);
+  }
 </style>
 </head>
 <body>
@@ -37,8 +55,9 @@ ${body}
 }
 
 function escapeHtml(s: string) {
-  return s.replace(/[&<>"']/g, (c) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!),
+  return s.replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
   );
 }
 
