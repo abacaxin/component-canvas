@@ -105,5 +105,6 @@ export function PropertiesPanel({ instance, variant, onChange, open, onToggle, o
         )}
       </div>
     </aside>
+    </>
   );
 }
