@@ -12,6 +12,7 @@ export function EditorShell() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [device, setDevice] = useState<Device>("desktop");
   const [libraryOpen, setLibraryOpen] = useState(true);
+  const [propsOpen, setPropsOpen] = useState(true);
 
   const selected = useMemo(
     () => store.project.sections.find((s) => s.id === selectedId) ?? null,
@@ -115,6 +116,8 @@ export function EditorShell() {
           instance={selected}
           variant={selected ? getVariant(selected.variantId) ?? null : null}
           onChange={(k, v) => selected && store.updateProp(selected.id, k, v)}
+          open={propsOpen}
+          onToggle={() => setPropsOpen((v) => !v)}
         />
       </div>
     </div>

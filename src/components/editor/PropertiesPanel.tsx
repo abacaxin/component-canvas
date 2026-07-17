@@ -1,18 +1,42 @@
 import type { SectionInstance, SectionVariant } from "@/lib/editor/types";
-import { Settings2 } from "lucide-react";
+import { Settings2, PanelRightClose, PanelRight } from "lucide-react";
 
 interface Props {
   instance: SectionInstance | null;
   variant: SectionVariant | null;
   onChange: (key: string, value: string) => void;
+  open: boolean;
+  onToggle: () => void;
 }
 
-export function PropertiesPanel({ instance, variant, onChange }: Props) {
+export function PropertiesPanel({ instance, variant, onChange, open, onToggle }: Props) {
+  if (!open) {
+    return (
+      <div className="w-10 border-l border-border bg-card/40 flex flex-col items-center py-3 gap-2">
+        <button
+          onClick={onToggle}
+          className="w-8 h-8 rounded-lg hover:bg-white/5 flex items-center justify-center text-muted-foreground hover:text-foreground"
+          title="Abrir propriedades"
+        >
+          <PanelRight className="w-4 h-4" />
+        </button>
+      </div>
+    );
+  }
   return (
     <aside className="w-80 shrink-0 border-l border-border bg-card/40 flex flex-col">
-      <div className="h-11 shrink-0 px-4 border-b border-border flex items-center gap-2">
-        <Settings2 className="w-3.5 h-3.5 text-muted-foreground" />
-        <div className="text-xs font-medium">Propriedades</div>
+      <div className="h-11 shrink-0 px-4 border-b border-border flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Settings2 className="w-3.5 h-3.5 text-muted-foreground" />
+          <div className="text-xs font-medium">Propriedades</div>
+        </div>
+        <button
+          onClick={onToggle}
+          className="w-7 h-7 rounded-md hover:bg-white/5 flex items-center justify-center text-muted-foreground"
+          title="Fechar"
+        >
+          <PanelRightClose className="w-4 h-4" />
+        </button>
       </div>
       <div className="flex-1 overflow-y-auto scrollbar-thin">
         {!instance || !variant ? (
