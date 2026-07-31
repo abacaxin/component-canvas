@@ -1,6 +1,11 @@
-import { useState } from "react";
-import { VARIANTS, RENDERERS } from "@/lib/editor/sections";
-import type { PropMap, SectionInstance } from "@/lib/editor/types";
+import { useMemo, useState } from "react";
+import { VARIANTS, RENDERERS, CATEGORY_ORDER, getVariant } from "@/lib/editor/sections";
+import type { PropMap, SectionInstance, SectionVariant } from "@/lib/editor/types";
+import type { useLibraryPrefs } from "@/hooks/use-library-prefs";
+import type { DragState } from "@/hooks/use-canvas-drag";
+
+type LibraryPrefs = ReturnType<typeof useLibraryPrefs>;
+type DragStart = Pick<DragState, "start">;
 import {
   Plus,
   Copy,
@@ -9,11 +14,17 @@ import {
   EyeOff,
   ChevronUp,
   ChevronDown,
+  ChevronRight,
   PanelLeftClose,
   PanelLeft,
   Layers,
   LibraryBig,
   GripVertical,
+  Search,
+  Star,
+  Sparkles,
+  Clock,
+  X,
 } from "lucide-react";
 import {
   DndContext,
@@ -43,6 +54,8 @@ interface Props {
   onToggleHidden: (id: string) => void;
   onMove: (id: string, dir: -1 | 1) => void;
   onReorder: (fromId: string, toId: string) => void;
+  prefs: LibraryPrefs;
+  drag: DragStart;
   overlay?: boolean;
   onClose?: () => void;
 }
@@ -59,6 +72,8 @@ export function SectionLibrary({
   onToggleHidden,
   onMove,
   onReorder,
+  prefs,
+  drag,
   overlay,
   onClose,
 }: Props) {
@@ -150,40 +165,196 @@ export function SectionLibrary({
               </SortableContext>
             </DndContext>
           ) : (
-            <div className="grid grid-cols-1 gap-3">
-              {VARIANTS.map((v) => (
-                <button
-                  key={v.id}
-                  onClick={() => {
-                    onAdd(v.id);
-                    onClose?.();
-                  }}
-                  className="group text-left rounded-xl border border-white/5 hover:border-[#950101] bg-black/40 overflow-hidden transition-all"
-                >
-                  <VariantPreview variantId={v.id} defaults={v.defaults} />
-                  <div className="p-2.5 border-t border-white/5">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="text-xs font-medium text-foreground truncate">{v.name}</div>
-                        <div className="text-[10px] text-muted-foreground truncate">
-                          {v.description}
-                        </div>
-                      </div>
-                      <div className="w-6 h-6 rounded-md border border-white/10 group-hover:bg-[#FF0000] group-hover:border-[#FF0000] flex items-center justify-center transition-colors shrink-0">
-                        <Plus className="w-3 h-3" />
-                      </div>
-                    </div>
-                    <div className="mt-1 text-[9px] uppercase tracking-widest text-muted-foreground/70">
-                      {v.kind}
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
+            <LibraryBrowser prefs={prefs} drag={drag} onAdd={onAdd} />
           )}
         </div>
       </aside>
     </>
+  );
+}
+
+function LibraryBrowser({
+  prefs,
+  drag,
+  onAdd,
+}: {
+  prefs: LibraryPrefs;
+  drag: DragStart;
+  onAdd: (id: string) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const q = query.trim().toLowerCase();
+
+  const toggle = (key: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  const groups = useMemo(() => {
+    const matches = (v: SectionVariant) =>
+      !q ||
+      v.name.toLowerCase().includes(q) ||
+      v.description.toLowerCase().includes(q) ||
+      (v.category ?? "").toLowerCase().includes(q);
+
+    const resolve = (ids: string[]) =>
+      ids
+        .map((id) => getVariant(id))
+        .filter((v): v is SectionVariant => !!v)
+        .filter(matches);
+
+    return {
+      favorites: resolve(prefs.favorites),
+      recents: resolve(prefs.recents),
+      categories: CATEGORY_ORDER.map((cat) => ({
+        cat,
+        items: VARIANTS.filter((v) => v.category === cat && matches(v)),
+      })).filter((g) => g.items.length > 0),
+    };
+  }, [q, prefs.favorites, prefs.recents]);
+
+  const empty =
+    groups.favorites.length === 0 && groups.recents.length === 0 && groups.categories.length === 0;
+
+  const renderGroup = (
+    key: string,
+    label: string,
+    items: SectionVariant[],
+    Icon?: React.ComponentType<{ className?: string }>,
+  ) => {
+    const isCollapsed = collapsed.has(key);
+    return (
+      <div key={key} className="mb-1">
+        <button
+          onClick={() => toggle(key)}
+          className="w-full flex items-center gap-1.5 px-1 py-1.5 text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ChevronRight
+            className={`w-3 h-3 transition-transform ${isCollapsed ? "" : "rotate-90"}`}
+          />
+          {Icon && <Icon className="w-3 h-3" />}
+          {label}
+          <span className="ml-auto text-muted-foreground/60 normal-case tracking-normal">
+            {items.length}
+          </span>
+        </button>
+        {!isCollapsed && (
+          <div className="grid grid-cols-1 gap-2 pb-2">
+            {items.map((v) => (
+              <VariantCard
+                key={v.id}
+                v={v}
+                drag={drag}
+                onAdd={onAdd}
+                isFavorite={prefs.favorites.includes(v.id)}
+                onToggleFavorite={() => prefs.toggleFavorite(v.id)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div>
+      <div className="sticky top-0 z-10 -mx-2 -mt-2 px-2 pt-2 pb-2 bg-card/95 backdrop-blur-sm">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Buscar componentes…"
+            className="w-full text-sm bg-input/60 border border-border rounded-lg pl-8 pr-8 py-2 outline-none focus:border-[#950101] focus:ring-2 focus:ring-[#FF0000]/20 transition-all"
+          />
+          {query && (
+            <button
+              onClick={() => setQuery("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-foreground"
+              title="Limpar"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {groups.favorites.length > 0 && renderGroup("__fav", "Favoritos", groups.favorites, Star)}
+      {groups.recents.length > 0 && renderGroup("__recent", "Recentes", groups.recents, Clock)}
+      {groups.categories.map((g) => renderGroup(g.cat, g.cat, g.items))}
+
+      {empty && (
+        <div className="text-xs text-muted-foreground text-center py-10">
+          Nada encontrado para “{query}”.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function VariantCard({
+  v,
+  drag,
+  onAdd,
+  isFavorite,
+  onToggleFavorite,
+}: {
+  v: SectionVariant;
+  drag: DragStart;
+  onAdd: (id: string) => void;
+  isFavorite: boolean;
+  onToggleFavorite: () => void;
+}) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      // Pointer press may become a drag-to-canvas or, if released in place, a plain add.
+      onPointerDown={(e) => drag.start(v.id, e)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onAdd(v.id);
+        }
+      }}
+      style={{ touchAction: "pan-y" }}
+      className="group relative text-left rounded-xl border border-white/5 hover:border-[#950101] bg-black/40 overflow-hidden transition-all cursor-grab active:cursor-grabbing"
+    >
+      <button
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleFavorite();
+        }}
+        className="absolute top-1.5 left-1.5 z-10 w-6 h-6 rounded-md bg-black/50 backdrop-blur flex items-center justify-center hover:bg-black/70 transition-colors"
+        title={isFavorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+      >
+        <Star
+          className={`w-3.5 h-3.5 ${isFavorite ? "fill-[#FFCC00] text-[#FFCC00]" : "text-white/60"}`}
+        />
+      </button>
+      {v.premium && (
+        <div className="absolute top-1.5 right-1.5 z-10 flex items-center gap-1 rounded-md bg-[#950101]/80 backdrop-blur px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white">
+          <Sparkles className="w-2.5 h-2.5" /> Pro
+        </div>
+      )}
+      <VariantPreview variantId={v.id} defaults={v.defaults} />
+      <div className="p-2.5 border-t border-white/5">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="text-xs font-medium text-foreground truncate">{v.name}</div>
+            <div className="text-[10px] text-muted-foreground truncate">{v.description}</div>
+          </div>
+          <div className="w-6 h-6 rounded-md border border-white/10 group-hover:bg-[#FF0000] group-hover:border-[#FF0000] flex items-center justify-center transition-colors shrink-0">
+            <Plus className="w-3 h-3" />
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

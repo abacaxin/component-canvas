@@ -1,13 +1,17 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type {
   FieldSchema,
+  ProjectState,
   PropValue,
   SectionInstance,
   SectionVariant,
   Typography,
 } from "@/lib/editor/types";
 import { str, bool, list } from "@/lib/editor/props";
+import { decodeLink, encodeLink, type LinkOptions } from "@/lib/editor/links";
+import { parseImage, encodeImage, objectPosition } from "@/lib/editor/images";
 import { TypographyPanel } from "./TypographyPanel";
+import { PricingPanel } from "./PricingPanel";
 import {
   Settings2,
   PanelRightClose,
@@ -18,18 +22,23 @@ import {
   Trash2,
   ChevronUp,
   ChevronDown,
+  Crosshair,
+  Wallet,
 } from "lucide-react";
 
 interface Props {
   instance: SectionInstance | null;
   variant: SectionVariant | null;
   typography: Typography;
+  linkOptions: LinkOptions;
+  project: ProjectState;
   onChange: (key: string, value: PropValue) => void;
   onListAdd: (key: string) => void;
   onListRemove: (key: string, itemId: string) => void;
   onListChange: (key: string, itemId: string, field: string, value: string) => void;
   onListMove: (key: string, itemId: string, dir: -1 | 1) => void;
   onTypographyChange: (patch: Partial<Typography>) => void;
+  onToggleBillingAddon: (key: string) => void;
   open: boolean;
   onToggle: () => void;
   overlay?: boolean;
@@ -37,9 +46,19 @@ interface Props {
 }
 
 export function PropertiesPanel(props: Props) {
-  const { instance, variant, typography, open, onToggle, overlay, onClose, onTypographyChange } =
-    props;
-  const [tab, setTab] = useState<"section" | "type">("section");
+  const {
+    instance,
+    variant,
+    typography,
+    project,
+    open,
+    onToggle,
+    overlay,
+    onClose,
+    onTypographyChange,
+    onToggleBillingAddon,
+  } = props;
+  const [tab, setTab] = useState<"section" | "type" | "pricing">("section");
 
   if (!open) {
     return (
@@ -64,23 +83,29 @@ export function PropertiesPanel(props: Props) {
       {overlay && <div className="absolute inset-0 z-20 bg-black/50" onClick={onClose} />}
       <aside className={asideCls}>
         <div className="h-11 shrink-0 px-2 border-b border-border flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1 p-0.5 bg-secondary rounded-full text-xs">
+          <div className="flex items-center gap-1 p-0.5 bg-secondary rounded-full text-xs overflow-x-auto scrollbar-thin">
             <button
               onClick={() => setTab("section")}
-              className={`px-3 py-1 rounded-full flex items-center gap-1.5 transition-all ${tab === "section" ? "bg-background text-foreground" : "text-muted-foreground"}`}
+              className={`shrink-0 px-3 py-1 rounded-full flex items-center gap-1.5 transition-all ${tab === "section" ? "bg-background text-foreground" : "text-muted-foreground"}`}
             >
               <Layers2 className="w-3 h-3" /> Seção
             </button>
             <button
               onClick={() => setTab("type")}
-              className={`px-3 py-1 rounded-full flex items-center gap-1.5 transition-all ${tab === "type" ? "bg-background text-foreground" : "text-muted-foreground"}`}
+              className={`shrink-0 px-3 py-1 rounded-full flex items-center gap-1.5 transition-all ${tab === "type" ? "bg-background text-foreground" : "text-muted-foreground"}`}
             >
               <Type className="w-3 h-3" /> Tipografia
+            </button>
+            <button
+              onClick={() => setTab("pricing")}
+              className={`shrink-0 px-3 py-1 rounded-full flex items-center gap-1.5 transition-all ${tab === "pricing" ? "bg-background text-foreground" : "text-muted-foreground"}`}
+            >
+              <Wallet className="w-3 h-3" /> Preços
             </button>
           </div>
           <button
             onClick={overlay ? onClose : onToggle}
-            className="w-7 h-7 rounded-md hover:bg-white/5 flex items-center justify-center text-muted-foreground"
+            className="w-7 h-7 shrink-0 rounded-md hover:bg-white/5 flex items-center justify-center text-muted-foreground"
             title="Fechar"
           >
             <PanelRightClose className="w-4 h-4" />
@@ -90,6 +115,8 @@ export function PropertiesPanel(props: Props) {
         <div className="flex-1 overflow-y-auto scrollbar-thin">
           {tab === "type" ? (
             <TypographyPanel typography={typography} onChange={onTypographyChange} />
+          ) : tab === "pricing" ? (
+            <PricingPanel project={project} onToggleAddon={onToggleBillingAddon} />
           ) : !instance || !variant ? (
             <div className="p-6 text-xs text-muted-foreground text-center flex flex-col items-center gap-2">
               <Settings2 className="w-4 h-4" />
@@ -99,6 +126,7 @@ export function PropertiesPanel(props: Props) {
             <SectionFields
               instance={instance}
               variant={variant}
+              linkOptions={props.linkOptions}
               onChange={props.onChange}
               onListAdd={props.onListAdd}
               onListRemove={props.onListRemove}
@@ -115,6 +143,7 @@ export function PropertiesPanel(props: Props) {
 function SectionFields({
   instance,
   variant,
+  linkOptions,
   onChange,
   onListAdd,
   onListRemove,
@@ -123,6 +152,7 @@ function SectionFields({
 }: {
   instance: SectionInstance;
   variant: SectionVariant;
+  linkOptions: LinkOptions;
   onChange: Props["onChange"];
   onListAdd: Props["onListAdd"];
   onListRemove: Props["onListRemove"];
@@ -152,13 +182,20 @@ function SectionFields({
               key={f.key}
               field={f}
               items={list(instance.props, f.key)}
+              linkOptions={linkOptions}
               onAdd={() => onListAdd(f.key)}
               onRemove={(itemId) => onListRemove(f.key, itemId)}
               onChange={(itemId, field, value) => onListChange(f.key, itemId, field, value)}
               onMove={(itemId, dir) => onListMove(f.key, itemId, dir)}
             />
           ) : (
-            <ScalarField key={f.key} field={f} instance={instance} onChange={onChange} />
+            <ScalarField
+              key={f.key}
+              field={f}
+              instance={instance}
+              linkOptions={linkOptions}
+              onChange={onChange}
+            />
           ),
         )}
     </div>
@@ -168,10 +205,12 @@ function SectionFields({
 function ScalarField({
   field: f,
   instance,
+  linkOptions,
   onChange,
 }: {
   field: FieldSchema;
   instance: SectionInstance;
+  linkOptions: LinkOptions;
   onChange: (key: string, value: PropValue) => void;
 }) {
   if (f.type === "toggle") {
@@ -199,12 +238,12 @@ function ScalarField({
       <label className="text-[11px] text-muted-foreground font-medium mb-1.5 block">
         {f.label}
       </label>
-      <FieldInput field={f} value={val} onChange={(v) => onChange(f.key, v)} />
-      {f.type === "image" && val && (
-        <div className="mt-2 rounded-lg overflow-hidden border border-border aspect-video bg-black">
-          <img src={val} alt="" className="w-full h-full object-cover" />
-        </div>
-      )}
+      <FieldInput
+        field={f}
+        value={val}
+        linkOptions={linkOptions}
+        onChange={(v) => onChange(f.key, v)}
+      />
     </div>
   );
 }
@@ -213,14 +252,22 @@ function ScalarField({
 function FieldInput({
   field: f,
   value,
+  linkOptions,
   onChange,
 }: {
   field: FieldSchema;
   value: string;
+  linkOptions: LinkOptions;
   onChange: (v: string) => void;
 }) {
   const base =
     "w-full text-sm bg-input/60 border border-border rounded-lg px-3 py-2 outline-none focus:border-[#950101] focus:ring-2 focus:ring-[#FF0000]/20 transition-all";
+  if (f.type === "link") {
+    return <LinkPicker value={value} options={linkOptions} onChange={onChange} />;
+  }
+  if (f.type === "image") {
+    return <FocalImageInput value={value} onChange={onChange} />;
+  }
   if (f.type === "textarea") {
     return (
       <textarea
@@ -274,6 +321,7 @@ function FieldInput({
 function ListField({
   field: f,
   items,
+  linkOptions,
   onAdd,
   onRemove,
   onChange,
@@ -281,6 +329,7 @@ function ListField({
 }: {
   field: FieldSchema;
   items: Array<Record<string, string> & { _id: string }>;
+  linkOptions: LinkOptions;
   onAdd: () => void;
   onRemove: (itemId: string) => void;
   onChange: (itemId: string, field: string, value: string) => void;
@@ -339,6 +388,7 @@ function ListField({
                 <FieldInput
                   field={sf}
                   value={item[sf.key] ?? ""}
+                  linkOptions={linkOptions}
                   onChange={(v) => onChange(item._id, sf.key, v)}
                 />
               </div>
@@ -377,5 +427,141 @@ function MiniBtn({
     >
       {children}
     </button>
+  );
+}
+
+/** Picker for a link target: none / section / page / external URL. */
+function LinkPicker({
+  value,
+  options,
+  onChange,
+}: {
+  value: string;
+  options: LinkOptions;
+  onChange: (v: string) => void;
+}) {
+  const target = decodeLink(value);
+  const base =
+    "w-full text-sm bg-input/60 border border-border rounded-lg px-3 py-2 outline-none focus:border-[#950101] transition-all";
+
+  const setKind = (kind: string) => {
+    if (kind === "none") onChange("");
+    else if (kind === "url") onChange(encodeLink({ kind: "url", url: "" }));
+    else if (kind === "page")
+      onChange(encodeLink({ kind: "page", pageId: options.pages[0]?.id ?? "" }));
+    else if (kind === "section")
+      onChange(encodeLink({ kind: "section", sectionId: options.sections[0]?.id ?? "" }));
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <select value={target.kind} onChange={(e) => setKind(e.target.value)} className={base}>
+        <option value="none">Sem link</option>
+        <option value="section">Rolar até uma seção</option>
+        <option value="page">Ir para outra página</option>
+        <option value="url">URL externa</option>
+      </select>
+
+      {target.kind === "url" && (
+        <input
+          type="url"
+          value={target.url}
+          placeholder="https://exemplo.com"
+          onChange={(e) => onChange(encodeLink({ kind: "url", url: e.target.value }))}
+          className={base}
+        />
+      )}
+      {target.kind === "page" && (
+        <select
+          value={target.pageId}
+          onChange={(e) => onChange(encodeLink({ kind: "page", pageId: e.target.value }))}
+          className={base}
+        >
+          {options.pages.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+      )}
+      {target.kind === "section" && (
+        <select
+          value={target.sectionId}
+          onChange={(e) => onChange(encodeLink({ kind: "section", sectionId: e.target.value }))}
+          className={base}
+        >
+          {options.sections.length === 0 && <option value="">Nenhuma seção</option>}
+          {options.sections.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.label}
+            </option>
+          ))}
+        </select>
+      )}
+    </div>
+  );
+}
+
+/** URL input + draggable focal-point picker (smart crop). */
+function FocalImageInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const img = parseImage(value);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const dragging = useRef(false);
+  const base =
+    "w-full text-sm bg-input/60 border border-border rounded-lg px-3 py-2 outline-none focus:border-[#950101] focus:ring-2 focus:ring-[#FF0000]/20 transition-all";
+
+  const setFocalFromEvent = (clientX: number, clientY: number) => {
+    const r = boxRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const fx = Math.min(100, Math.max(0, ((clientX - r.left) / r.width) * 100));
+    const fy = Math.min(100, Math.max(0, ((clientY - r.top) / r.height) * 100));
+    onChange(encodeImage({ src: img.src, fx, fy }));
+  };
+
+  return (
+    <div className="space-y-2">
+      <input
+        type="url"
+        value={img.src}
+        placeholder="https://…"
+        onChange={(e) => onChange(encodeImage({ src: e.target.value, fx: img.fx, fy: img.fy }))}
+        className={base}
+      />
+      {img.src && (
+        <>
+          <div
+            ref={boxRef}
+            onPointerDown={(e) => {
+              e.currentTarget.setPointerCapture(e.pointerId);
+              dragging.current = true;
+              setFocalFromEvent(e.clientX, e.clientY);
+            }}
+            onPointerMove={(e) => {
+              if (dragging.current) setFocalFromEvent(e.clientX, e.clientY);
+            }}
+            onPointerUp={() => (dragging.current = false)}
+            className="relative rounded-lg overflow-hidden border border-border aspect-video bg-black cursor-crosshair touch-none select-none"
+          >
+            <img
+              src={img.src}
+              alt=""
+              draggable={false}
+              className="w-full h-full object-cover pointer-events-none"
+              style={{ objectPosition: objectPosition(img) }}
+            />
+            <div
+              className="absolute w-6 h-6 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-[0_0_0_2px_rgba(0,0,0,0.5)] pointer-events-none"
+              style={{ left: `${img.fx}%`, top: `${img.fy}%` }}
+            >
+              <div className="absolute inset-0 m-auto w-1.5 h-1.5 rounded-full bg-[#FF0000]" />
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+            <Crosshair className="w-3 h-3" />
+            Arraste para definir o ponto focal · {Math.round(img.fx)}% {Math.round(img.fy)}%
+          </div>
+        </>
+      )}
+    </div>
   );
 }

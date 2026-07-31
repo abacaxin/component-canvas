@@ -1,5 +1,5 @@
 export type FieldType =
-  "text" | "textarea" | "color" | "image" | "url" | "toggle" | "select" | "list";
+  "text" | "textarea" | "color" | "image" | "url" | "toggle" | "select" | "list" | "link";
 
 export interface SelectOption {
   value: string;
@@ -26,6 +26,8 @@ export interface FieldSchema {
   showWhen?: { key: string; equals: string | boolean };
 }
 
+export type LibraryCategory = "Header" | "Hero" | "Corpo" | "Conversão" | "Footer";
+
 export interface SectionVariant {
   id: string; // unique variant id, e.g. "navbar.modern"
   kind: SectionKind;
@@ -33,6 +35,10 @@ export interface SectionVariant {
   description: string;
   schema: FieldSchema[];
   defaults: PropMap;
+  /** Library grouping (assigned when the catalog is built). */
+  category?: LibraryCategory;
+  /** Marked as a premium component in the library (badge; gating is server-side). */
+  premium?: boolean;
 }
 
 export type SectionKind =
@@ -63,10 +69,37 @@ export interface Typography {
   baseSize: number; // px, base body size, 14–20
 }
 
+export interface Page {
+  id: string; // uuid
+  name: string; // "Home", "Sobre"…
+  slug: string; // url-safe, unique within the project ("home", "sobre")
+  sections: SectionInstance[];
+}
+
+export interface BillingState {
+  /** Manually toggled add-ons, keyed by feature key (see lib/pricing/catalog.ts). */
+  addons: Record<string, boolean>;
+}
+
 export interface ProjectState {
   name: string;
-  sections: SectionInstance[];
+  pages: Page[];
   typography: Typography;
+  billing: BillingState;
 }
+
+/**
+ * A navigation target stored on a button/link.
+ * Serialized to a string prop so it fits the existing PropValue union:
+ *   ""                    → none
+ *   "url:https://…"       → external URL
+ *   "page:<pageId>"       → another page
+ *   "section:<sectionId>" → scroll to a section (on any page)
+ */
+export type LinkTarget =
+  | { kind: "none" }
+  | { kind: "url"; url: string }
+  | { kind: "page"; pageId: string }
+  | { kind: "section"; sectionId: string };
 
 export type Device = "desktop" | "tablet" | "mobile";

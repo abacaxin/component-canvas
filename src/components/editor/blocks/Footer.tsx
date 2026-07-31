@@ -1,5 +1,5 @@
 import type { PropMap } from "@/lib/editor/types";
-import { str, list, headingStyle } from "./_shared";
+import { str, list, headingStyle, SiteLink } from "./_shared";
 
 type P = { props: PropMap };
 
@@ -18,9 +18,13 @@ export function FooterDark({ props }: P) {
         {links.length > 0 && (
           <nav className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-white/60">
             {links.map((l) => (
-              <a key={l._id} className="hover:text-white transition-colors cursor-pointer">
+              <SiteLink
+                key={l._id}
+                link={l.link}
+                className="hover:text-white transition-colors cursor-pointer"
+              >
                 {l.label}
-              </a>
+              </SiteLink>
             ))}
           </nav>
         )}

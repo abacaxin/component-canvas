@@ -6,7 +6,9 @@ import type {
   PropValue,
   ListItem,
   FieldSchema,
+  LibraryCategory,
 } from "./types";
+import { uuid } from "./id";
 import { NavbarModern, NavbarMinimal } from "@/components/editor/blocks/Navbar";
 import { HeroGradient, HeroSplit } from "@/components/editor/blocks/Hero";
 import { FeaturesGrid, FeaturesList } from "@/components/editor/blocks/Features";
@@ -30,7 +32,7 @@ export const ICON_OPTIONS = [
 
 /** Build a list default item with a stable _id. */
 function li(obj: Record<string, string>): ListItem {
-  return { _id: crypto.randomUUID(), ...obj };
+  return { _id: uuid(), ...obj };
 }
 
 const COLOR_FIELDS: FieldSchema[] = [
@@ -60,8 +62,11 @@ const RAW: SectionVariant[] = [
         label: "Itens do menu",
         type: "list",
         itemLabel: "Link",
-        itemSchema: [{ key: "label", label: "Texto", type: "text" }],
-        itemDefaults: { label: "Novo link" },
+        itemSchema: [
+          { key: "label", label: "Texto", type: "text" },
+          { key: "link", label: "Destino", type: "link" },
+        ],
+        itemDefaults: { label: "Novo link", link: "" },
         min: 0,
         max: 6,
       },
@@ -72,12 +77,23 @@ const RAW: SectionVariant[] = [
         type: "text",
         showWhen: { key: "showCta", equals: true },
       },
+      {
+        key: "ctaLink",
+        label: "Destino do botão",
+        type: "link",
+        showWhen: { key: "showCta", equals: true },
+      },
     ],
     defaults: {
       brand: "SANGRE",
-      links: [li({ label: "Produto" }), li({ label: "Preços" }), li({ label: "Contato" })],
+      links: [
+        li({ label: "Produto", link: "" }),
+        li({ label: "Preços", link: "" }),
+        li({ label: "Contato", link: "" }),
+      ],
       showCta: true,
       ctaText: "Começar",
+      ctaLink: "",
     },
   },
   {
@@ -88,8 +104,9 @@ const RAW: SectionVariant[] = [
     schema: [
       { key: "brand", label: "Nome da marca", type: "text" },
       { key: "ctaText", label: "Texto do link", type: "text" },
+      { key: "ctaLink", label: "Destino do link", type: "link" },
     ],
-    defaults: { brand: "SANGRE", ctaText: "Entrar" },
+    defaults: { brand: "SANGRE", ctaText: "Entrar", ctaLink: "" },
   },
   {
     id: "hero.gradient",
@@ -107,11 +124,18 @@ const RAW: SectionVariant[] = [
       { key: "title", label: "Título", type: "textarea" },
       { key: "subtitle", label: "Subtítulo", type: "textarea" },
       { key: "cta", label: "Botão principal", type: "text" },
+      { key: "ctaLink", label: "Destino do botão", type: "link" },
       { key: "showSecondaryCta", label: "Mostrar botão secundário", type: "toggle" },
       {
         key: "ctaSecondary",
         label: "Botão secundário",
         type: "text",
+        showWhen: { key: "showSecondaryCta", equals: true },
+      },
+      {
+        key: "ctaSecondaryLink",
+        label: "Destino do secundário",
+        type: "link",
         showWhen: { key: "showSecondaryCta", equals: true },
       },
       { key: "showStats", label: "Mostrar estatísticas", type: "toggle" },
@@ -136,8 +160,10 @@ const RAW: SectionVariant[] = [
       title: "Construa sites cinematográficos em minutos",
       subtitle: "Combine seções pré-desenhadas e publique com um clique. Sem código, sem limites.",
       cta: "Começar grátis",
+      ctaLink: "",
       showSecondaryCta: true,
       ctaSecondary: "Ver demo",
+      ctaSecondaryLink: "",
       showStats: false,
       stats: [
         li({ value: "12k+", label: "Sites criados" }),
@@ -162,11 +188,18 @@ const RAW: SectionVariant[] = [
       { key: "title", label: "Título", type: "textarea" },
       { key: "subtitle", label: "Subtítulo", type: "textarea" },
       { key: "cta", label: "Botão", type: "text" },
+      { key: "ctaLink", label: "Destino do botão", type: "link" },
       { key: "showSecondaryCta", label: "Mostrar botão secundário", type: "toggle" },
       {
         key: "ctaSecondary",
         label: "Botão secundário",
         type: "text",
+        showWhen: { key: "showSecondaryCta", equals: true },
+      },
+      {
+        key: "ctaSecondaryLink",
+        label: "Destino do secundário",
+        type: "link",
         showWhen: { key: "showSecondaryCta", equals: true },
       },
       { key: "showImage", label: "Mostrar imagem", type: "toggle" },
@@ -183,8 +216,10 @@ const RAW: SectionVariant[] = [
       title: "Design que sangra qualidade",
       subtitle: "Cada seção foi desenhada por profissionais. Você apenas escolhe e edita.",
       cta: "Explorar",
+      ctaLink: "",
       showSecondaryCta: false,
       ctaSecondary: "Saiba mais",
+      ctaSecondaryLink: "",
       showImage: true,
       image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200",
     },
@@ -383,12 +418,14 @@ const RAW: SectionVariant[] = [
         showWhen: { key: "showSubtitle", equals: true },
       },
       { key: "cta", label: "Botão", type: "text" },
+      { key: "ctaLink", label: "Destino do botão", type: "link" },
     ],
     defaults: {
       title: "Pronto para lançar?",
       showSubtitle: false,
       subtitle: "Comece agora, é grátis.",
       cta: "Começar agora",
+      ctaLink: "",
     },
   },
   {
@@ -404,8 +441,11 @@ const RAW: SectionVariant[] = [
         label: "Links",
         type: "list",
         itemLabel: "Link",
-        itemSchema: [{ key: "label", label: "Texto", type: "text" }],
-        itemDefaults: { label: "Link" },
+        itemSchema: [
+          { key: "label", label: "Texto", type: "text" },
+          { key: "link", label: "Destino", type: "link" },
+        ],
+        itemDefaults: { label: "Link", link: "" },
         min: 0,
         max: 8,
       },
@@ -414,7 +454,11 @@ const RAW: SectionVariant[] = [
     defaults: {
       brand: "SANGRE",
       tagline: "Sites que impressionam.",
-      links: [li({ label: "Produto" }), li({ label: "Preços" }), li({ label: "Contato" })],
+      links: [
+        li({ label: "Produto", link: "" }),
+        li({ label: "Preços", link: "" }),
+        li({ label: "Contato", link: "" }),
+      ],
       copyright: "© 2026 Sangre. Todos os direitos reservados.",
     },
   },
@@ -428,7 +472,29 @@ const RAW: SectionVariant[] = [
   },
 ];
 
-export const VARIANTS: SectionVariant[] = RAW.map(withColors);
+const CATEGORY_BY_KIND: Record<SectionKind, LibraryCategory> = {
+  navbar: "Header",
+  hero: "Hero",
+  features: "Corpo",
+  gallery: "Corpo",
+  testimonials: "Corpo",
+  faq: "Corpo",
+  cta: "Conversão",
+  footer: "Footer",
+};
+
+export const CATEGORY_ORDER: LibraryCategory[] = ["Header", "Hero", "Corpo", "Conversão", "Footer"];
+
+/** Variants flagged as premium (shown with a badge; access gating is server-side, #7). */
+const PREMIUM_IDS = new Set<string>(["hero.split", "gallery.masonry", "footer.dark"]);
+
+export const VARIANTS: SectionVariant[] = RAW.map((v) =>
+  withColors({
+    ...v,
+    category: CATEGORY_BY_KIND[v.kind],
+    premium: PREMIUM_IDS.has(v.id),
+  }),
+);
 
 export const RENDERERS: Record<string, ComponentType<{ props: PropMap }>> = {
   "navbar.modern": NavbarModern,
@@ -460,7 +526,7 @@ export function variantsByKind(): Record<SectionKind, SectionVariant[]> {
 /** Deep-clone a prop value, regenerating list item ids so instances stay independent. */
 function cloneProp(value: PropValue): PropValue {
   if (Array.isArray(value)) {
-    return value.map((item) => ({ ...item, _id: crypto.randomUUID() }));
+    return value.map((item) => ({ ...item, _id: uuid() }));
   }
   return value;
 }
@@ -474,7 +540,7 @@ export function cloneProps(props: PropMap): PropMap {
 export function createInstance(variantId: string): SectionInstance {
   const v = getVariant(variantId)!;
   return {
-    id: crypto.randomUUID(),
+    id: uuid(),
     variantId,
     props: cloneProps(v.defaults),
   };

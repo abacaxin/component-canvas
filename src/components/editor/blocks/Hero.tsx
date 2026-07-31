@@ -1,5 +1,5 @@
 import type { PropMap } from "@/lib/editor/types";
-import { str, bool, list, headingStyle } from "./_shared";
+import { str, bool, list, headingStyle, SiteLink, SmartImage } from "./_shared";
 
 type P = { props: PropMap };
 
@@ -36,19 +36,23 @@ export function HeroGradient({ props }: P) {
           {str(props, "subtitle")}
         </p>
         <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
-          <button
-            className="w-full sm:w-auto text-white font-medium px-6 py-3 rounded-full transition-transform hover:scale-105"
+          <SiteLink
+            link={str(props, "ctaLink")}
+            className="w-full sm:w-auto inline-flex items-center justify-center text-white font-medium px-6 py-3 rounded-full transition-transform hover:scale-105 cursor-pointer"
             style={{
               background: `linear-gradient(135deg, ${accent}66, ${accent})`,
               boxShadow: `0 0 40px -8px ${accent}`,
             }}
           >
             {str(props, "cta")}
-          </button>
+          </SiteLink>
           {bool(props, "showSecondaryCta", true) && str(props, "ctaSecondary") && (
-            <button className="w-full sm:w-auto text-white/80 hover:text-white font-medium px-6 py-3 rounded-full border border-white/10 hover:border-white/30 transition-all">
+            <SiteLink
+              link={str(props, "ctaSecondaryLink")}
+              className="w-full sm:w-auto inline-flex items-center justify-center text-white/80 hover:text-white font-medium px-6 py-3 rounded-full border border-white/10 hover:border-white/30 transition-all cursor-pointer"
+            >
               {str(props, "ctaSecondary")}
-            </button>
+            </SiteLink>
           )}
         </div>
         {showStats && stats.length > 0 && (
@@ -100,27 +104,26 @@ export function HeroSplit({ props }: P) {
           <div
             className={`mt-6 sm:mt-8 flex flex-wrap items-center gap-3 ${showImage ? "" : "justify-center"}`}
           >
-            <button
-              className="text-white font-medium px-6 py-3 rounded-full"
+            <SiteLink
+              link={str(props, "ctaLink")}
+              className="inline-flex items-center justify-center text-white font-medium px-6 py-3 rounded-full cursor-pointer"
               style={{ background: `linear-gradient(135deg, ${accent}66, ${accent})` }}
             >
               {str(props, "cta")}
-            </button>
+            </SiteLink>
             {bool(props, "showSecondaryCta") && str(props, "ctaSecondary") && (
-              <button className="text-white/80 hover:text-white font-medium px-6 py-3 rounded-full border border-white/10 hover:border-white/30 transition-all">
+              <SiteLink
+                link={str(props, "ctaSecondaryLink")}
+                className="inline-flex items-center justify-center text-white/80 hover:text-white font-medium px-6 py-3 rounded-full border border-white/10 hover:border-white/30 transition-all cursor-pointer"
+              >
                 {str(props, "ctaSecondary")}
-              </button>
+              </SiteLink>
             )}
           </div>
         </div>
         {showImage && (
           <div className="relative rounded-2xl overflow-hidden aspect-[4/5] border border-white/10">
-            <img
-              src={str(props, "image")}
-              alt=""
-              loading="lazy"
-              className="w-full h-full object-cover"
-            />
+            <SmartImage value={str(props, "image")} />
             <div
               className="absolute inset-0"
               style={{ background: "linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.6))" }}
