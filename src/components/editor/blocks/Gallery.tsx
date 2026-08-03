@@ -1,16 +1,20 @@
 import type { PropMap } from "@/lib/editor/types";
-import { str, list, headingStyle, SmartImage } from "./_shared";
+import { str, list, headingStyle, SmartImage, textVars } from "./_shared";
 
 type P = { props: PropMap };
 
 export function GalleryMasonry({ props }: P) {
   const bg = str(props, "bg", "#000000");
+  const textColor = str(props, "textColor", "#FFFFFF");
   const images = list(props, "images");
   return (
-    <section className="py-16 sm:py-24 border-t border-white/5" style={{ background: bg }}>
+    <section
+      className="py-16 sm:py-24 border-t border-white/5"
+      style={{ background: bg, ...textVars(textColor) }}
+    >
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <h2
-          className="text-2xl sm:text-3xl md:text-5xl font-bold text-white text-center mb-10 sm:mb-12"
+          className="text-2xl sm:text-3xl md:text-5xl font-bold text-[color:var(--tc)] text-center mb-10 sm:mb-12"
           style={headingStyle}
         >
           {str(props, "title")}

@@ -1,31 +1,32 @@
 import type { PropMap } from "@/lib/editor/types";
-import { str, bool, list, headingStyle, SiteLink } from "./_shared";
+import { str, bool, list, headingStyle, SiteLink, textVars } from "./_shared";
 
 type P = { props: PropMap };
 
 export function NavbarModern({ props }: P) {
   const bg = str(props, "bg", "#000000");
+  const textColor = str(props, "textColor", "#FFFFFF");
   const accent = str(props, "accent", "#FF0000");
   const links = list(props, "links");
   return (
     <header
       className="sticky top-0 z-10 backdrop-blur-xl border-b border-white/5"
-      style={{ background: `color-mix(in oklab, ${bg} 70%, transparent)` }}
+      style={{ background: `color-mix(in oklab, ${bg} 70%, transparent)`, ...textVars(textColor) }}
     >
       <div className="mx-auto max-w-6xl px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
         <div
-          className="font-bold tracking-tight text-white text-base sm:text-lg truncate"
+          className="font-bold tracking-tight text-[color:var(--tc)] text-base sm:text-lg truncate"
           style={headingStyle}
         >
           {str(props, "brand")}
         </div>
         {links.length > 0 && (
-          <nav className="hidden md:flex items-center gap-6 lg:gap-8 text-sm text-white/70">
+          <nav className="hidden md:flex items-center gap-6 lg:gap-8 text-sm text-[color:var(--tc-70)]">
             {links.map((l) => (
               <SiteLink
                 key={l._id}
                 link={l.link}
-                className="hover:text-white transition-colors cursor-pointer"
+                className="hover:text-[color:var(--tc)] transition-colors cursor-pointer"
               >
                 {l.label}
               </SiteLink>
@@ -48,15 +49,16 @@ export function NavbarModern({ props }: P) {
 
 export function NavbarMinimal({ props }: P) {
   const bg = str(props, "bg", "#000000");
+  const textColor = str(props, "textColor", "#FFFFFF");
   return (
-    <header className="border-b border-white/5" style={{ background: bg }}>
+    <header className="border-b border-white/5" style={{ background: bg, ...textVars(textColor) }}>
       <div className="mx-auto max-w-6xl px-4 sm:px-6 h-14 flex items-center justify-between">
-        <div className="font-semibold text-white truncate" style={headingStyle}>
+        <div className="font-semibold text-[color:var(--tc)] truncate" style={headingStyle}>
           {str(props, "brand")}
         </div>
         <SiteLink
           link={str(props, "ctaLink")}
-          className="text-sm text-white/70 hover:text-white transition-colors shrink-0 cursor-pointer"
+          className="text-sm text-[color:var(--tc-70)] hover:text-[color:var(--tc)] transition-colors shrink-0 cursor-pointer"
         >
           {str(props, "ctaText")}
         </SiteLink>
