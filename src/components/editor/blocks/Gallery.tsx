@@ -1,5 +1,5 @@
 import type { PropMap } from "@/lib/editor/types";
-import { str, list, headingStyle } from "./_shared";
+import { str, list, headingStyle, SmartImage } from "./_shared";
 
 type P = { props: PropMap };
 
@@ -21,11 +21,9 @@ export function GalleryMasonry({ props }: P) {
               key={img._id}
               className={`overflow-hidden rounded-xl border border-white/10 ${i % 3 === 0 ? "row-span-2 aspect-[3/4]" : "aspect-square"}`}
             >
-              <img
-                src={img.src}
-                alt=""
-                loading="lazy"
-                className="w-full h-full object-cover hover:scale-110 transition-transform duration-700"
+              <SmartImage
+                value={img.src}
+                className="hover:scale-110 transition-transform duration-700"
               />
             </div>
           ))}

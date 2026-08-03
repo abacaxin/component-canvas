@@ -1,11 +1,25 @@
-import { useMemo, useState, useEffect } from "react";
+import { useCallback, useMemo, useState, useEffect } from "react";
 import { useProject } from "@/lib/editor/store";
 import { getVariant, RENDERERS } from "@/lib/editor/sections";
 import { downloadHTML } from "@/lib/editor/export";
+import {
+  decodeLink,
+  resolveHref,
+  findPageOfSection,
+  sectionAnchorId,
+  type LinkOptions,
+} from "@/lib/editor/links";
 import { SectionLibrary } from "./SectionLibrary";
 import { PropertiesPanel } from "./PropertiesPanel";
 import { Canvas } from "./Canvas";
+import { PageTabs } from "./PageTabs";
 import { FontLoader } from "./FontLoader";
+import { useLibraryPrefs } from "@/hooks/use-library-prefs";
+import { useCanvasDrag } from "@/hooks/use-canvas-drag";
+import { useCloudSync, type SyncStatus } from "@/lib/supabase/sync";
+import { signOut } from "@/lib/supabase/auth";
+import type { User } from "@supabase/supabase-js";
+import type { LinkResolver } from "./blocks/_link";
 import type { Device } from "@/lib/editor/types";
 import {
   Undo2,
@@ -18,15 +32,64 @@ import {
   Download,
   Menu,
   Settings2,
+  Eye,
+  Pencil,
+  GripVertical,
+  LogOut,
 } from "lucide-react";
 
-export function EditorShell() {
+/**
+ * Scroll the outer canvas container so the given section (rendered inside the preview
+ * iframe) comes into view. The iframe is full-height and doesn't scroll internally.
+ */
+function scrollCanvasToSection(sectionId: string) {
+  const iframe = document.querySelector("iframe");
+  const main = iframe?.closest("main");
+  const el = iframe?.contentDocument?.getElementById(sectionAnchorId(sectionId));
+  if (!iframe || !main || !el) return;
+  const iframeTop = iframe.getBoundingClientRect().top;
+  const mainTop = main.getBoundingClientRect().top;
+  const elTop = el.getBoundingClientRect().top; // relative to the (unscrolled) iframe viewport
+  // Instant, not smooth: smooth scrolling on this container is unreliable while the
+  // iframe is being re-measured, and silently no-ops in some engines.
+  main.scrollTop = main.scrollTop + (iframeTop - mainTop) + elTop - 12;
+}
+
+export function EditorShell({ user }: { user: User | null }) {
   const store = useProject();
+  const syncStatus = useCloudSync({
+    userId: user?.id ?? null,
+    project: store.project,
+    onLoad: store.replaceProject,
+  });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [device, setDevice] = useState<Device>("desktop");
+  const [previewMode, setPreviewMode] = useState(false);
   const [isNarrow, setIsNarrow] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(true);
   const [propsOpen, setPropsOpen] = useState(true);
+
+  const sections = store.activePage.sections;
+  const libraryPrefs = useLibraryPrefs();
+
+  // Adding a component: from a click/tap/keyboard (append) or a drag-drop (at an index).
+  const activateVariant = useCallback(
+    (variantId: string) => {
+      store.addSection(variantId);
+      libraryPrefs.pushRecent(variantId);
+      if (isNarrow) setLibraryOpen(false);
+    },
+    [store, libraryPrefs, isNarrow],
+  );
+
+  const canvasDrag = useCanvasDrag({
+    getIframe: () => document.querySelector("iframe"),
+    onDrop: (variantId, index) => {
+      store.addSection(variantId, index);
+      libraryPrefs.pushRecent(variantId);
+    },
+    onTap: activateVariant,
+  });
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 1023px)");
@@ -46,9 +109,14 @@ export function EditorShell() {
   }, []);
 
   const selected = useMemo(
-    () => store.project.sections.find((s) => s.id === selectedId) ?? null,
-    [store.project.sections, selectedId],
+    () => sections.find((s) => s.id === selectedId) ?? null,
+    [sections, selectedId],
   );
+
+  // Selection is per-page; clear it when the active page changes.
+  useEffect(() => {
+    setSelectedId(null);
+  }, [store.activePageId]);
 
   // Auto-open properties on narrow when a section is selected
   useEffect(() => {
@@ -71,6 +139,56 @@ export function EditorShell() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [store]);
+
+  const linkOptions = useMemo<LinkOptions>(
+    () => ({
+      pages: store.project.pages.map((p) => ({ id: p.id, name: p.name })),
+      sections: store.project.pages.flatMap((p) =>
+        p.sections.map((s) => ({
+          id: s.id,
+          label: `${p.name} · ${getVariant(s.variantId)?.name ?? s.variantId}`,
+        })),
+      ),
+    }),
+    [store.project.pages],
+  );
+
+  // Resolve link targets. In edit mode links are inert (returns null → clicks select).
+  const resolveLink = useCallback<LinkResolver>(
+    (encoded) => {
+      if (!previewMode) return null;
+      const target = decodeLink(encoded);
+      if (target.kind === "none") return null;
+      const href = resolveHref(store.project, store.activePageId, target);
+      return {
+        href,
+        navigate: (e) => {
+          e.preventDefault();
+          if (target.kind === "url") {
+            if (target.url) window.open(target.url, "_blank", "noopener,noreferrer");
+            return;
+          }
+          if (target.kind === "page") {
+            store.setActivePage(target.pageId);
+            const main = document.querySelector("main");
+            if (main) main.scrollTop = 0;
+            return;
+          }
+          // section: the iframe renders at full content height and does not scroll
+          // internally, so scroll the outer canvas container to bring the target in view.
+          const page = findPageOfSection(store.project.pages, target.sectionId);
+          if (!page) return;
+          if (page.id !== store.activePageId) {
+            store.setActivePage(page.id);
+            setTimeout(() => scrollCanvasToSection(target.sectionId), 90);
+          } else {
+            scrollCanvasToSection(target.sectionId);
+          }
+        },
+      };
+    },
+    [previewMode, store],
+  );
 
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-background text-foreground">
@@ -128,6 +246,18 @@ export function EditorShell() {
 
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           <button
+            onClick={() => setPreviewMode((v) => !v)}
+            className={`h-9 px-3 rounded-full text-xs sm:text-sm font-medium flex items-center gap-2 transition-all border ${
+              previewMode
+                ? "bg-[#3D0000]/40 border-[#950101] text-white"
+                : "border-white/10 hover:border-white/30 hover:bg-white/5 text-white"
+            }`}
+            title={previewMode ? "Voltar à edição" : "Pré-visualizar (links navegam)"}
+          >
+            {previewMode ? <Pencil className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+            <span className="hidden sm:inline">{previewMode ? "Editar" : "Prévia"}</span>
+          </button>
+          <button
             onClick={store.undo}
             className="hidden sm:flex w-8 h-8 rounded-lg hover:bg-white/5 items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
             title="Desfazer"
@@ -142,9 +272,9 @@ export function EditorShell() {
             <Redo2 className="w-4 h-4" />
           </button>
           <button
-            onClick={() => downloadHTML(store.project)}
+            onClick={() => downloadHTML(store.project, store.activePageId)}
             className="h-9 px-3 sm:px-4 rounded-full text-xs sm:text-sm font-medium border border-white/10 hover:border-white/30 hover:bg-white/5 text-white flex items-center gap-2 transition-all"
-            title="Exportar HTML"
+            title="Exportar HTML da página atual"
           >
             <Download className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Exportar</span>
@@ -159,6 +289,9 @@ export function EditorShell() {
             <Rocket className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Publicar</span>
           </button>
+          {user && (
+            <AccountBadge email={user.email ?? ""} status={syncStatus} onSignOut={signOut} />
+          )}
           {isNarrow && (
             <button
               onClick={() => setPropsOpen((v) => !v)}
@@ -171,14 +304,25 @@ export function EditorShell() {
         </div>
       </header>
 
+      <PageTabs
+        pages={store.project.pages}
+        activePageId={store.activePageId}
+        onSelect={store.setActivePage}
+        onAdd={store.addPage}
+        onRename={store.renamePage}
+        onDuplicate={store.duplicatePage}
+        onDelete={store.removePage}
+        onMove={store.movePage}
+      />
+
       {/* Body */}
       <div className="flex-1 flex overflow-hidden relative">
-        {(!isNarrow || libraryOpen) && (
+        {!previewMode && (!isNarrow || libraryOpen) && (
           <SectionLibrary
             open={libraryOpen}
             onToggle={() => setLibraryOpen((v) => !v)}
-            onAdd={(vid) => store.addSection(vid)}
-            sections={store.project.sections}
+            onAdd={activateVariant}
+            sections={sections}
             selectedId={selectedId}
             onSelect={setSelectedId}
             onRemove={store.removeSection}
@@ -186,6 +330,8 @@ export function EditorShell() {
             onToggleHidden={store.toggleHidden}
             onMove={store.moveSection}
             onReorder={store.reorderSections}
+            prefs={libraryPrefs}
+            drag={{ start: canvasDrag.start }}
             overlay={isNarrow}
             onClose={() => setLibraryOpen(false)}
           />
@@ -193,18 +339,25 @@ export function EditorShell() {
 
         <Canvas
           device={device}
-          sections={store.project.sections}
+          sections={sections}
           selectedId={selectedId}
           onSelect={setSelectedId}
           renderers={RENDERERS}
           typography={store.project.typography}
+          previewMode={previewMode}
+          resolveLink={resolveLink}
+          dropIndex={canvasDrag.dropIndex}
+          dragging={canvasDrag.variantId !== null}
         />
 
-        {(!isNarrow || propsOpen) && (
+        {!previewMode && (!isNarrow || propsOpen) && (
           <PropertiesPanel
             instance={selected}
             variant={selected ? (getVariant(selected.variantId) ?? null) : null}
             typography={store.project.typography}
+            linkOptions={linkOptions}
+            project={store.project}
+            onToggleBillingAddon={store.toggleBillingAddon}
             onChange={(k, v) => selected && store.updateProp(selected.id, k, v)}
             onListAdd={(k) => selected && store.addListItem(selected.id, k)}
             onListRemove={(k, itemId) => selected && store.removeListItem(selected.id, k, itemId)}
@@ -222,6 +375,55 @@ export function EditorShell() {
           />
         )}
       </div>
+
+      {canvasDrag.variantId && canvasDrag.point && (
+        <div
+          className="pointer-events-none fixed z-50 flex items-center gap-2 rounded-lg border border-[#950101] bg-card/95 px-3 py-2 text-xs font-medium text-white shadow-2xl backdrop-blur"
+          style={{ left: canvasDrag.point.x + 14, top: canvasDrag.point.y + 14 }}
+        >
+          <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
+          {getVariant(canvasDrag.variantId)?.name ?? "Componente"}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AccountBadge({
+  email,
+  status,
+  onSignOut,
+}: {
+  email: string;
+  status: SyncStatus;
+  onSignOut: () => void;
+}) {
+  const label: Record<SyncStatus, string> = {
+    idle: "",
+    loading: "Carregando…",
+    saving: "Salvando…",
+    saved: "Salvo na nuvem",
+    error: "Erro ao salvar",
+  };
+  const dot =
+    status === "error"
+      ? "bg-[#FF0000]"
+      : status === "saving" || status === "loading"
+        ? "bg-yellow-400 animate-pulse"
+        : "bg-emerald-400";
+  return (
+    <div className="flex items-center gap-2 pl-1 sm:pl-2 sm:border-l sm:border-border">
+      <div className="hidden md:flex items-center gap-1.5" title={label[status]}>
+        <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
+        <span className="text-[11px] text-muted-foreground max-w-[140px] truncate">{email}</span>
+      </div>
+      <button
+        onClick={onSignOut}
+        className="w-8 h-8 rounded-lg hover:bg-white/5 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+        title={`${email} · Sair`}
+      >
+        <LogOut className="w-4 h-4" />
+      </button>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import type { PropMap } from "@/lib/editor/types";
-import { str, bool, headingStyle } from "./_shared";
+import { str, bool, headingStyle, SiteLink } from "./_shared";
 
 type P = { props: PropMap };
 
@@ -33,15 +33,16 @@ export function CTABanner({ props }: P) {
               {str(props, "subtitle")}
             </p>
           )}
-          <button
-            className="relative mt-6 sm:mt-8 text-white font-medium px-8 py-3 rounded-full"
+          <SiteLink
+            link={str(props, "ctaLink")}
+            className="relative mt-6 sm:mt-8 inline-flex items-center justify-center text-white font-medium px-8 py-3 rounded-full cursor-pointer"
             style={{
               background: `linear-gradient(135deg, ${accent}66, ${accent})`,
               boxShadow: `0 0 40px -8px ${accent}`,
             }}
           >
             {str(props, "cta")}
-          </button>
+          </SiteLink>
         </div>
       </div>
     </section>
