@@ -24,7 +24,47 @@ import {
   ChevronDown,
   Crosshair,
   Wallet,
+  PanelTop,
+  Rocket,
+  LayoutGrid,
+  Image as ImageIcon,
+  MessageSquareQuote,
+  HelpCircle,
+  Megaphone,
+  PanelBottom,
+  type LucideIcon,
 } from "lucide-react";
+
+const KIND_ICON: Record<SectionVariant["kind"], LucideIcon> = {
+  navbar: PanelTop,
+  hero: Rocket,
+  features: LayoutGrid,
+  gallery: ImageIcon,
+  testimonials: MessageSquareQuote,
+  faq: HelpCircle,
+  cta: Megaphone,
+  footer: PanelBottom,
+};
+
+/** Groups a toggle (or any field) together with the fields whose `showWhen` targets it,
+ *  so dependent settings render visually nested under the control that unlocks them. */
+function groupFields(schema: FieldSchema[]) {
+  const groups: { field: FieldSchema; children: FieldSchema[] }[] = [];
+  let current: (typeof groups)[number] | null = null;
+  for (const f of schema) {
+    if (f.showWhen && current && f.showWhen.key === current.field.key) {
+      current.children.push(f);
+    } else {
+      current = { field: f, children: [] };
+      groups.push(current);
+    }
+  }
+  return groups;
+}
+
+function shortColorLabel(label: string): string {
+  return label.replace(/^Cor d[eo]\s*/i, "");
+}
 
 interface Props {
   instance: SectionInstance | null;
@@ -159,45 +199,118 @@ function SectionFields({
   onListChange: Props["onListChange"];
   onListMove: Props["onListMove"];
 }) {
-  const visible = (f: FieldSchema) => {
-    if (!f.showWhen) return true;
-    return instance.props[f.showWhen.key] === f.showWhen.equals;
-  };
+  const visible = (f: FieldSchema) =>
+    !f.showWhen || instance.props[f.showWhen.key] === f.showWhen.equals;
+
+  const colorFields = variant.schema.filter((f) => f.type === "color");
+  const contentSchema = variant.schema.filter((f) => f.type !== "color");
+  const groups = groupFields(contentSchema);
+  const Icon = KIND_ICON[variant.kind] ?? Layers2;
+
+  const renderField = (f: FieldSchema) =>
+    f.type === "list" ? (
+      <ListField
+        key={f.key}
+        field={f}
+        items={list(instance.props, f.key)}
+        linkOptions={linkOptions}
+        onAdd={() => onListAdd(f.key)}
+        onRemove={(itemId) => onListRemove(f.key, itemId)}
+        onChange={(itemId, field, value) => onListChange(f.key, itemId, field, value)}
+        onMove={(itemId, dir) => onListMove(f.key, itemId, dir)}
+      />
+    ) : (
+      <ScalarField
+        key={f.key}
+        field={f}
+        instance={instance}
+        linkOptions={linkOptions}
+        onChange={onChange}
+      />
+    );
 
   return (
-    <div className="p-4 space-y-4">
-      <div>
-        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-          {variant.kind}
+    <div className="p-4 space-y-5">
+      <div className="flex items-start gap-2.5">
+        <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center shrink-0 mt-0.5">
+          <Icon className="w-4 h-4 text-muted-foreground" />
         </div>
-        <div className="text-sm font-semibold mt-0.5">{variant.name}</div>
-        <div className="text-xs text-muted-foreground mt-1">{variant.description}</div>
+        <div className="min-w-0">
+          <div className="text-sm font-semibold">{variant.name}</div>
+          <div className="text-xs text-muted-foreground mt-0.5">{variant.description}</div>
+        </div>
       </div>
+
+      {colorFields.length > 0 && (
+        <div>
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">
+            Cores
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {colorFields.map((f) => (
+              <ColorSwatchField
+                key={f.key}
+                field={f}
+                value={str(instance.props, f.key)}
+                onChange={(v) => onChange(f.key, v)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="h-px bg-border" />
-      {variant.schema
-        .filter(visible)
-        .map((f) =>
-          f.type === "list" ? (
-            <ListField
-              key={f.key}
-              field={f}
-              items={list(instance.props, f.key)}
-              linkOptions={linkOptions}
-              onAdd={() => onListAdd(f.key)}
-              onRemove={(itemId) => onListRemove(f.key, itemId)}
-              onChange={(itemId, field, value) => onListChange(f.key, itemId, field, value)}
-              onMove={(itemId, dir) => onListMove(f.key, itemId, dir)}
-            />
-          ) : (
-            <ScalarField
-              key={f.key}
-              field={f}
-              instance={instance}
-              linkOptions={linkOptions}
-              onChange={onChange}
-            />
-          ),
-        )}
+
+      <div className="space-y-4">
+        {groups.map(({ field: f, children }) => {
+          if (!visible(f)) return null;
+          const visibleChildren = children.filter(visible);
+          return (
+            <div key={f.key}>
+              {renderField(f)}
+              {visibleChildren.length > 0 && (
+                <div className="mt-3 ml-1 pl-3 border-l-2 border-[#950101]/30 space-y-3">
+                  {visibleChildren.map(renderField)}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** Compact swatch used for the bg/text/accent color trio — a colored square, hex
+ *  underneath, and a short label, three to a row instead of three full-width rows. */
+function ColorSwatchField({
+  field: f,
+  value,
+  onChange,
+}: {
+  field: FieldSchema;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const v = value || "#000000";
+  return (
+    <div className="flex flex-col gap-1 items-center">
+      <input
+        type="color"
+        value={v}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full h-9 rounded-lg border border-border cursor-pointer bg-transparent p-0.5"
+        title={f.label}
+      />
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full text-[10px] font-mono bg-input/40 border border-border rounded px-1 py-0.5 text-center outline-none focus:border-[#950101] transition-all"
+      />
+      <span className="text-[10px] text-muted-foreground text-center leading-tight truncate w-full">
+        {shortColorLabel(f.label)}
+      </span>
     </div>
   );
 }

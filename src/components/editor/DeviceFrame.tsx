@@ -11,10 +11,13 @@ import { createRoot, type Root } from "react-dom/client";
 export function DeviceFrame({
   width,
   interactive = true,
+  onHeightChange,
   children,
 }: {
   width: number;
   interactive?: boolean;
+  /** Reports the real (unscaled) content height, so a wrapper can reserve the right space. */
+  onHeightChange?: (height: number) => void;
   children: ReactNode;
 }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -23,6 +26,8 @@ export function DeviceFrame({
   const childrenRef = useRef<ReactNode>(children);
   childrenRef.current = children;
   const [height, setHeight] = useState(600);
+  const onHeightChangeRef = useRef(onHeightChange);
+  onHeightChangeRef.current = onHeightChange;
 
   useEffect(() => {
     const iframe = iframeRef.current;
@@ -91,6 +96,10 @@ export function DeviceFrame({
     rootRef.current?.render(children);
     scheduleRef.current();
   }, [children]);
+
+  useEffect(() => {
+    onHeightChangeRef.current?.(height);
+  }, [height]);
 
   return (
     <iframe

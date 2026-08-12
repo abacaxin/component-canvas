@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { VARIANTS, RENDERERS, CATEGORY_ORDER, getVariant } from "@/lib/editor/sections";
-import type { PropMap, SectionInstance, SectionVariant } from "@/lib/editor/types";
+import type { PropMap, SectionInstance, SectionVariant, LibraryCategory } from "@/lib/editor/types";
 import type { useLibraryPrefs } from "@/hooks/use-library-prefs";
 import type { DragState } from "@/hooks/use-canvas-drag";
 
@@ -15,6 +15,7 @@ import {
   ChevronUp,
   ChevronDown,
   ChevronRight,
+  ArrowLeft,
   PanelLeftClose,
   PanelLeft,
   Layers,
@@ -25,6 +26,12 @@ import {
   Sparkles,
   Clock,
   X,
+  PanelTop,
+  Rocket,
+  LayoutGrid,
+  Megaphone,
+  PanelBottom,
+  type LucideIcon,
 } from "lucide-react";
 import {
   DndContext,
@@ -132,38 +139,46 @@ export function SectionLibrary({
 
         <div className="flex-1 overflow-y-auto scrollbar-thin p-2">
           {tab === "layers" ? (
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext
-                items={sections.map((s) => s.id)}
-                strategy={verticalListSortingStrategy}
-              >
-                <div className="space-y-1">
-                  {sections.map((s, i) => (
-                    <SortableLayer
-                      key={s.id}
-                      s={s}
-                      index={i}
-                      total={sections.length}
-                      active={s.id === selectedId}
-                      onSelect={() => onSelect(s.id)}
-                      onMove={onMove}
-                      onToggleHidden={onToggleHidden}
-                      onDuplicate={onDuplicate}
-                      onRemove={onRemove}
-                    />
-                  ))}
-                  {sections.length === 0 && (
-                    <div className="text-xs text-muted-foreground text-center py-8">
-                      Adicione seções da biblioteca
-                    </div>
-                  )}
+            <>
+              {sections.length > 1 && (
+                <div className="px-1 pb-2 text-[11px] text-muted-foreground">
+                  Arraste <GripVertical className="inline w-3 h-3 -mt-0.5" /> para reordenar as
+                  seções da página.
                 </div>
-              </SortableContext>
-            </DndContext>
+              )}
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={sections.map((s) => s.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-1">
+                    {sections.map((s, i) => (
+                      <SortableLayer
+                        key={s.id}
+                        s={s}
+                        index={i}
+                        total={sections.length}
+                        active={s.id === selectedId}
+                        onSelect={() => onSelect(s.id)}
+                        onMove={onMove}
+                        onToggleHidden={onToggleHidden}
+                        onDuplicate={onDuplicate}
+                        onRemove={onRemove}
+                      />
+                    ))}
+                    {sections.length === 0 && (
+                      <div className="text-xs text-muted-foreground text-center py-8">
+                        Adicione seções da biblioteca
+                      </div>
+                    )}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            </>
           ) : (
             <LibraryBrowser prefs={prefs} drag={drag} onAdd={onAdd} />
           )}
@@ -172,6 +187,16 @@ export function SectionLibrary({
     </>
   );
 }
+
+const CATEGORY_ICON: Record<LibraryCategory, LucideIcon> = {
+  Header: PanelTop,
+  Hero: Rocket,
+  Corpo: LayoutGrid,
+  Conversão: Megaphone,
+  Footer: PanelBottom,
+};
+
+type SectionKey = LibraryCategory | "__fav" | "__recent";
 
 function LibraryBrowser({
   prefs,
@@ -183,116 +208,188 @@ function LibraryBrowser({
   onAdd: (id: string) => void;
 }) {
   const [query, setQuery] = useState("");
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [openSection, setOpenSection] = useState<SectionKey | null>(null);
   const q = query.trim().toLowerCase();
 
-  const toggle = (key: string) =>
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+  const matches = (v: SectionVariant) =>
+    !q ||
+    v.name.toLowerCase().includes(q) ||
+    v.description.toLowerCase().includes(q) ||
+    (v.category ?? "").toLowerCase().includes(q);
 
-  const groups = useMemo(() => {
-    const matches = (v: SectionVariant) =>
-      !q ||
-      v.name.toLowerCase().includes(q) ||
-      v.description.toLowerCase().includes(q) ||
-      (v.category ?? "").toLowerCase().includes(q);
+  const resolve = (ids: string[]) =>
+    ids.map((id) => getVariant(id)).filter((v): v is SectionVariant => !!v);
 
-    const resolve = (ids: string[]) =>
-      ids
-        .map((id) => getVariant(id))
-        .filter((v): v is SectionVariant => !!v)
-        .filter(matches);
+  // Unfiltered, just for the counts shown on each clickable row.
+  const favoriteItems = useMemo(() => resolve(prefs.favorites), [prefs.favorites]);
+  const recentItems = useMemo(() => resolve(prefs.recents), [prefs.recents]);
+  const byCategory = useMemo(
+    () => CATEGORY_ORDER.map((cat) => ({ cat, items: VARIANTS.filter((v) => v.category === cat) })),
+    [],
+  );
 
-    return {
-      favorites: resolve(prefs.favorites),
-      recents: resolve(prefs.recents),
-      categories: CATEGORY_ORDER.map((cat) => ({
-        cat,
-        items: VARIANTS.filter((v) => v.category === cat && matches(v)),
-      })).filter((g) => g.items.length > 0),
-    };
-  }, [q, prefs.favorites, prefs.recents]);
+  const searchResults = useMemo(() => (q ? VARIANTS.filter(matches) : []), [q]);
 
-  const empty =
-    groups.favorites.length === 0 && groups.recents.length === 0 && groups.categories.length === 0;
+  const searchBar = (
+    <div className="sticky top-0 z-10 -mx-2 -mt-2 px-2 pt-2 pb-2 bg-card/95 backdrop-blur-sm">
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Buscar componentes…"
+          className="w-full text-sm bg-input/60 border border-border rounded-lg pl-8 pr-8 py-2 outline-none focus:border-[#950101] focus:ring-2 focus:ring-[#FF0000]/20 transition-all"
+        />
+        {query && (
+          <button
+            onClick={() => setQuery("")}
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-foreground"
+            title="Limpar"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
 
-  const renderGroup = (
-    key: string,
-    label: string,
-    items: SectionVariant[],
-    Icon?: React.ComponentType<{ className?: string }>,
-  ) => {
-    const isCollapsed = collapsed.has(key);
+  const cardGrid = (items: SectionVariant[]) => (
+    <div className="grid grid-cols-1 gap-2">
+      {items.map((v) => (
+        <VariantCard
+          key={v.id}
+          v={v}
+          drag={drag}
+          onAdd={onAdd}
+          isFavorite={prefs.favorites.includes(v.id)}
+          onToggleFavorite={() => prefs.toggleFavorite(v.id)}
+        />
+      ))}
+    </div>
+  );
+
+  // Search overrides navigation entirely: flat results across every category.
+  if (q) {
     return (
-      <div key={key} className="mb-1">
-        <button
-          onClick={() => toggle(key)}
-          className="w-full flex items-center gap-1.5 px-1 py-1.5 text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ChevronRight
-            className={`w-3 h-3 transition-transform ${isCollapsed ? "" : "rotate-90"}`}
-          />
-          {Icon && <Icon className="w-3 h-3" />}
-          {label}
-          <span className="ml-auto text-muted-foreground/60 normal-case tracking-normal">
-            {items.length}
-          </span>
-        </button>
-        {!isCollapsed && (
-          <div className="grid grid-cols-1 gap-2 pb-2">
-            {items.map((v) => (
-              <VariantCard
-                key={v.id}
-                v={v}
-                drag={drag}
-                onAdd={onAdd}
-                isFavorite={prefs.favorites.includes(v.id)}
-                onToggleFavorite={() => prefs.toggleFavorite(v.id)}
-              />
-            ))}
+      <div>
+        {searchBar}
+        <div className="mb-2 px-1 text-[11px] text-muted-foreground">
+          {searchResults.length} resultado{searchResults.length === 1 ? "" : "s"} para “{query}”
+        </div>
+        {searchResults.length > 0 ? (
+          cardGrid(searchResults)
+        ) : (
+          <div className="text-xs text-muted-foreground text-center py-10">
+            Nada encontrado para “{query}”.
           </div>
         )}
       </div>
     );
-  };
+  }
 
+  // Drilled into one section: show its components with a way back.
+  if (openSection) {
+    const isCat = openSection !== "__fav" && openSection !== "__recent";
+    const items = isCat
+      ? (byCategory.find((g) => g.cat === openSection)?.items ?? [])
+      : openSection === "__fav"
+        ? favoriteItems
+        : recentItems;
+    const label = isCat ? openSection : openSection === "__fav" ? "Favoritos" : "Recentes";
+    const Icon = isCat ? CATEGORY_ICON[openSection] : openSection === "__fav" ? Star : Clock;
+
+    return (
+      <div>
+        {searchBar}
+        <button
+          onClick={() => setOpenSection(null)}
+          className="mb-3 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" /> Categorias
+        </button>
+        <div className="mb-3 flex items-center gap-2 px-1">
+          <Icon className="w-4 h-4 text-muted-foreground" />
+          <div className="text-sm font-semibold text-foreground">{label}</div>
+          <span className="ml-auto text-[11px] text-muted-foreground">{items.length}</span>
+        </div>
+        {items.length > 0 ? (
+          cardGrid(items)
+        ) : (
+          <div className="text-xs text-muted-foreground text-center py-10">
+            {openSection === "__fav"
+              ? "Toque na estrela de um componente para favoritá-lo."
+              : "Os últimos componentes que você adicionar aparecem aqui."}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Default: the list of clickable sections (categories + favorites/recents).
   return (
     <div>
-      <div className="sticky top-0 z-10 -mx-2 -mt-2 px-2 pt-2 pb-2 bg-card/95 backdrop-blur-sm">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar componentes…"
-            className="w-full text-sm bg-input/60 border border-border rounded-lg pl-8 pr-8 py-2 outline-none focus:border-[#950101] focus:ring-2 focus:ring-[#FF0000]/20 transition-all"
+      {searchBar}
+      <div className="space-y-1.5">
+        {favoriteItems.length > 0 && (
+          <SectionRow
+            Icon={Star}
+            label="Favoritos"
+            count={favoriteItems.length}
+            onClick={() => setOpenSection("__fav")}
           />
-          {query && (
-            <button
-              onClick={() => setQuery("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-foreground"
-              title="Limpar"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
+        )}
+        {recentItems.length > 0 && (
+          <SectionRow
+            Icon={Clock}
+            label="Recentes"
+            count={recentItems.length}
+            onClick={() => setOpenSection("__recent")}
+          />
+        )}
+        {(favoriteItems.length > 0 || recentItems.length > 0) && (
+          <div className="h-px bg-border my-2" />
+        )}
+        {byCategory.map(({ cat, items }) => (
+          <SectionRow
+            key={cat}
+            Icon={CATEGORY_ICON[cat]}
+            label={cat}
+            count={items.length}
+            onClick={() => setOpenSection(cat)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SectionRow({
+  Icon,
+  label,
+  count,
+  onClick,
+}: {
+  Icon: LucideIcon;
+  label: string;
+  count: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="group w-full flex items-center gap-3 rounded-xl border border-white/5 hover:border-[#950101] bg-black/30 hover:bg-black/50 px-3 py-2.5 transition-all text-left"
+    >
+      <div className="w-9 h-9 rounded-lg bg-white/5 group-hover:bg-[#3D0000]/50 flex items-center justify-center shrink-0 transition-colors">
+        <Icon className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-medium text-foreground">{label}</div>
+        <div className="text-[11px] text-muted-foreground">
+          {count} componente{count === 1 ? "" : "s"}
         </div>
       </div>
-
-      {groups.favorites.length > 0 && renderGroup("__fav", "Favoritos", groups.favorites, Star)}
-      {groups.recents.length > 0 && renderGroup("__recent", "Recentes", groups.recents, Clock)}
-      {groups.categories.map((g) => renderGroup(g.cat, g.cat, g.items))}
-
-      {empty && (
-        <div className="text-xs text-muted-foreground text-center py-10">
-          Nada encontrado para “{query}”.
-        </div>
-      )}
-    </div>
+      <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 group-hover:translate-x-0.5 transition-transform" />
+    </button>
   );
 }
 
@@ -456,6 +553,7 @@ function SortableLayer({
               onMove(s.id, -1);
             }}
             disabled={index === 0}
+            title="Mover para cima"
           >
             <ChevronUp className="w-3 h-3" />
           </IconBtn>
@@ -465,6 +563,7 @@ function SortableLayer({
               onMove(s.id, 1);
             }}
             disabled={index === total - 1}
+            title="Mover para baixo"
           >
             <ChevronDown className="w-3 h-3" />
           </IconBtn>
@@ -473,6 +572,7 @@ function SortableLayer({
               e.stopPropagation();
               onToggleHidden(s.id);
             }}
+            title={s.hidden ? "Mostrar seção" : "Ocultar seção"}
           >
             {s.hidden ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
           </IconBtn>
@@ -481,6 +581,7 @@ function SortableLayer({
               e.stopPropagation();
               onDuplicate(s.id);
             }}
+            title="Duplicar seção"
           >
             <Copy className="w-3 h-3" />
           </IconBtn>
@@ -489,6 +590,7 @@ function SortableLayer({
               e.stopPropagation();
               onRemove(s.id);
             }}
+            title="Remover seção"
           >
             <Trash2 className="w-3 h-3" />
           </IconBtn>
@@ -505,15 +607,18 @@ function IconBtn({
   children,
   onClick,
   disabled,
+  title,
 }: {
   children: React.ReactNode;
   onClick: (e: React.MouseEvent) => void;
   disabled?: boolean;
+  title?: string;
 }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
+      title={title}
       className="w-6 h-6 rounded-md hover:bg-white/10 text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center transition-colors"
     >
       {children}

@@ -12,4 +12,11 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  vite: {
+    build: {
+      // Never publish readable sourcemaps — they'd hand out original (unminified,
+      // fully-commented) source for anyone to reconstruct via devtools.
+      sourcemap: false,
+    },
+  },
 });
