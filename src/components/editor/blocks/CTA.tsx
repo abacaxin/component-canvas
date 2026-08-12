@@ -1,13 +1,17 @@
 import type { PropMap } from "@/lib/editor/types";
-import { str, bool, headingStyle, SiteLink } from "./_shared";
+import { str, bool, headingStyle, SiteLink, textVars } from "./_shared";
 
 type P = { props: PropMap };
 
 export function CTABanner({ props }: P) {
   const bg = str(props, "bg", "#000000");
+  const textColor = str(props, "textColor", "#FFFFFF");
   const accent = str(props, "accent", "#FF0000");
   return (
-    <section className="py-16 sm:py-24 border-t border-white/5" style={{ background: bg }}>
+    <section
+      className="py-16 sm:py-24 border-t border-white/5"
+      style={{ background: bg, ...textVars(textColor) }}
+    >
       <div className="mx-auto max-w-4xl px-4 sm:px-6">
         <div
           className="relative overflow-hidden rounded-3xl p-8 sm:p-12 md:p-16 text-center border"
@@ -23,13 +27,13 @@ export function CTABanner({ props }: P) {
             }}
           />
           <h2
-            className="relative text-2xl sm:text-3xl md:text-5xl font-bold text-white"
+            className="relative text-2xl sm:text-3xl md:text-5xl font-bold text-[color:var(--tc)]"
             style={headingStyle}
           >
             {str(props, "title")}
           </h2>
           {bool(props, "showSubtitle") && str(props, "subtitle") && (
-            <p className="relative mt-4 text-white/70 text-base sm:text-lg max-w-xl mx-auto">
+            <p className="relative mt-4 text-[color:var(--tc-70)] text-base sm:text-lg max-w-xl mx-auto">
               {str(props, "subtitle")}
             </p>
           )}

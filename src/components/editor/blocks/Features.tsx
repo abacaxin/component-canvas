@@ -10,7 +10,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { PropMap } from "@/lib/editor/types";
-import { str, list, headingStyle } from "./_shared";
+import { str, list, headingStyle, textVars } from "./_shared";
 
 type P = { props: PropMap };
 
@@ -33,14 +33,18 @@ const COLS: Record<string, string> = {
 
 export function FeaturesGrid({ props }: P) {
   const bg = str(props, "bg", "#000000");
+  const textColor = str(props, "textColor", "#FFFFFF");
   const accent = str(props, "accent", "#FF0000");
   const items = list(props, "items");
   const cols = COLS[str(props, "columns", "3")] ?? COLS["3"];
   return (
-    <section className="py-16 sm:py-24 border-t border-white/5" style={{ background: bg }}>
+    <section
+      className="py-16 sm:py-24 border-t border-white/5"
+      style={{ background: bg, ...textVars(textColor) }}
+    >
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <h2
-          className="text-2xl sm:text-3xl md:text-5xl font-bold text-white text-center mb-10 sm:mb-16"
+          className="text-2xl sm:text-3xl md:text-5xl font-bold text-[color:var(--tc)] text-center mb-10 sm:mb-16"
           style={headingStyle}
         >
           {str(props, "title")}
@@ -59,10 +63,10 @@ export function FeaturesGrid({ props }: P) {
                 >
                   <Icon className="w-5 h-5 text-white" />
                 </div>
-                <h3 className="font-semibold text-white text-lg" style={headingStyle}>
+                <h3 className="font-semibold text-[color:var(--tc)] text-lg" style={headingStyle}>
                   {it.title}
                 </h3>
-                <p className="mt-2 text-white/60 text-sm leading-relaxed">{it.desc}</p>
+                <p className="mt-2 text-[color:var(--tc-60)] text-sm leading-relaxed">{it.desc}</p>
               </div>
             );
           })}
@@ -74,13 +78,17 @@ export function FeaturesGrid({ props }: P) {
 
 export function FeaturesList({ props }: P) {
   const bg = str(props, "bg", "#000000");
+  const textColor = str(props, "textColor", "#FFFFFF");
   const accent = str(props, "accent", "#FF0000");
   const items = list(props, "items");
   return (
-    <section className="py-16 sm:py-24 border-t border-white/5" style={{ background: bg }}>
+    <section
+      className="py-16 sm:py-24 border-t border-white/5"
+      style={{ background: bg, ...textVars(textColor) }}
+    >
       <div className="mx-auto max-w-3xl px-4 sm:px-6">
         <h2
-          className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-8 sm:mb-10"
+          className="text-2xl sm:text-3xl md:text-4xl font-bold text-[color:var(--tc)] mb-8 sm:mb-10"
           style={headingStyle}
         >
           {str(props, "title")}
@@ -95,7 +103,7 @@ export function FeaturesList({ props }: P) {
                 className="mt-1.5 w-2 h-2 rounded-full shrink-0"
                 style={{ background: accent, boxShadow: `0 0 12px ${accent}` }}
               />
-              <span className="text-white/90">{it.text}</span>
+              <span className="text-[color:var(--tc-90)]">{it.text}</span>
             </li>
           ))}
         </ul>

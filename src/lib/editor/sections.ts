@@ -37,9 +37,10 @@ function li(obj: Record<string, string>): ListItem {
 
 const COLOR_FIELDS: FieldSchema[] = [
   { key: "bg", label: "Cor de fundo", type: "color" },
+  { key: "textColor", label: "Cor do texto", type: "color" },
   { key: "accent", label: "Cor de destaque", type: "color" },
 ];
-const COLOR_DEFAULTS: PropMap = { bg: "#000000", accent: "#FF0000" };
+const COLOR_DEFAULTS: PropMap = { bg: "#000000", textColor: "#FFFFFF", accent: "#FF0000" };
 
 function withColors(v: SectionVariant): SectionVariant {
   return {
